@@ -82,6 +82,3 @@ uploads/
 
 # Yarn Integrity file
 .yarn-integrity
-
-# Git
-.git/
