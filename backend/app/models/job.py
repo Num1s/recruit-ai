@@ -110,3 +110,7 @@ class InterviewInvitation(Base):
     job = relationship("Job", back_populates="interview_invitations")
     candidate = relationship("CandidateProfile", back_populates="interview_invitations")
     interview_session = relationship("InterviewSession", back_populates="invitation", uselist=False)
+
+
+
+

@@ -15,3 +15,7 @@ async def get_jobs():
 async def create_job():
     """Создание новой вакансии"""
     return {"message": "Create job endpoint - TODO"}
+
+
+
+

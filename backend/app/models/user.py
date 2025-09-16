@@ -107,3 +107,7 @@ class CompanyProfile(Base):
     # Relationships
     user = relationship("User", back_populates="company_profile")
     jobs = relationship("Job", back_populates="company")
+
+
+
+

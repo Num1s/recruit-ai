@@ -70,3 +70,7 @@ def get_optional_current_user(
         return get_current_user(credentials, db)
     except:
         return None
+
+
+
+

@@ -16,3 +16,7 @@ async def get_company_dashboard():
 async def get_company_candidates():
     """Получение списка кандидатов компании"""
     return {"message": "Company candidates endpoint - TODO"}
+
+
+
+

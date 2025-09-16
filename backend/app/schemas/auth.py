@@ -48,3 +48,7 @@ class ChangePasswordRequest(BaseModel):
     """Запрос на смену пароля"""
     current_password: str
     new_password: str
+
+
+
+

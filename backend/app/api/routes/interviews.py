@@ -15,3 +15,6 @@ async def get_interview_invitations():
 async def start_interview():
     """Начало интервью"""
     return {"message": "Start interview endpoint - TODO"}
+
+
+

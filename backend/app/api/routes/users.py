@@ -222,3 +222,7 @@ async def upload_avatar(
         "message": "Аватар успешно загружен",
         "avatar_url": f"/uploads/avatars/{unique_filename}"
     }
+
+
+
+

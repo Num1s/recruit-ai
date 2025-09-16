@@ -64,3 +64,7 @@ def generate_verification_token() -> str:
     """Генерация токена для подтверждения email"""
     import secrets
     return secrets.token_urlsafe(32)
+
+
+
+

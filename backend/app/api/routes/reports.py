@@ -10,3 +10,6 @@ router = APIRouter()
 async def get_candidate_report():
     """Получение отчета по кандидату"""
     return {"message": "Candidate report endpoint - TODO"}
+
+
+

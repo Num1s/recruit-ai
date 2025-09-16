@@ -88,3 +88,7 @@ def setup_exception_handlers(app: FastAPI):
                 "type": "InternalServerError"
             }
         )
+
+
+
+

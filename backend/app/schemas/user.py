@@ -128,3 +128,7 @@ class CandidateWithProfile(User):
 class CompanyWithProfile(User):
     """Компания с профилем"""
     company_profile: Optional[CompanyProfile] = None
+
+
+
+
