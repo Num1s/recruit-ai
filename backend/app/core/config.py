@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     MAX_INTERVIEW_QUESTIONS: int = 8
     
     class Config:
-        env_file = ".env"
         case_sensitive = True
         extra = "ignore"
 
