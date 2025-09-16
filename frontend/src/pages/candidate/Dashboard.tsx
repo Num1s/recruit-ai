@@ -9,11 +9,12 @@ import {
   CheckCircleOutlined,
   FileTextOutlined,
   SettingOutlined,
-  BuildOutlined
+  BuildOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
-import authAPI from '../../services/api.ts';
+import { authAPI } from '../../services/api.ts';
 import NotificationCenter from '../../components/candidate/NotificationCenter.tsx';
 import InterviewHistory from '../../components/candidate/InterviewHistory.tsx';
 
@@ -195,6 +196,12 @@ const Dashboard: React.FC = () => {
             onClick={() => navigate('/candidate/companies')}
           >
             Найти компании
+          </Button>
+          <Button 
+            icon={<SearchOutlined />} 
+            onClick={() => navigate('/candidate/jobs')}
+          >
+            Вакансии
           </Button>
           <Button 
             icon={<UploadOutlined />} 

@@ -41,7 +41,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../contexts/NotificationContext.tsx';
-import authAPI from '../../services/api.ts';
+import { authAPI } from '../../services/api.ts';
 
 const { Title, Text, Paragraph } = Typography;
 const { Search } = Input;

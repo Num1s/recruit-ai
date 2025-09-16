@@ -102,6 +102,20 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
       width={800}
       footer={null}
       destroyOnClose
+      className="invite-candidate-modal"
+      styles={{
+        content: {
+          background: 'rgba(26, 26, 46, 0.95)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px'
+        },
+        header: {
+          background: 'rgba(255, 255, 255, 0.05)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px 16px 0 0'
+        }
+      }}
     >
       <Form
         form={form}
@@ -117,7 +131,7 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
         }}
       >
         <div style={{ marginBottom: 24 }}>
-          <Title level={4}>Основная информация</Title>
+          <Title level={4} style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Основная информация</Title>
           
           <Form.Item
             name="candidate_email"
@@ -131,6 +145,11 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
               prefix={<MailOutlined />} 
               placeholder="candidate@example.com"
               size="large"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              name="candidate_email_input"
             />
           </Form.Item>
 
@@ -142,6 +161,11 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
               prefix={<UserOutlined />} 
               placeholder="Иван Иванов"
               size="large"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              name="candidate_name_input"
             />
           </Form.Item>
 
@@ -153,6 +177,11 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
             <Input 
               placeholder="Senior Frontend Developer"
               size="large"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              name="job_position_input"
             />
           </Form.Item>
 
@@ -164,6 +193,11 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
             <Input 
               placeholder="ООО 'Технологии будущего'"
               size="large"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              name="company_name_input"
             />
           </Form.Item>
         </div>
@@ -171,7 +205,7 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
         <Divider />
 
         <div style={{ marginBottom: 24 }}>
-          <Title level={4}>Настройки интервью</Title>
+          <Title level={4} style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Настройки интервью</Title>
           
           <Form.Item
             name="deadline_hours"
@@ -208,6 +242,11 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
               placeholder="Добавьте персональное сообщение для кандидата..."
               maxLength={500}
               showCount
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              name="message_input"
             />
           </Form.Item>
         </div>
@@ -216,22 +255,30 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
           <Button 
             type="link" 
             onClick={() => setShowAdvanced(!showAdvanced)}
-            style={{ paddingLeft: 0 }}
+            style={{ 
+              paddingLeft: 0,
+              color: 'rgba(168, 237, 234, 0.9)'
+            }}
           >
             {showAdvanced ? '- Скрыть' : '+ Показать'} дополнительные настройки
           </Button>
         </div>
 
         {showAdvanced && (
-          <Card style={{ marginBottom: 24, backgroundColor: '#fafafa' }}>
-            <Title level={5}>Дополнительные настройки</Title>
+          <Card style={{ 
+            marginBottom: 24, 
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px'
+          }}>
+            <Title level={5} style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Дополнительные настройки</Title>
             
             <Form.Item
               name="include_cv_analysis"
               valuePropName="checked"
             >
               <Switch /> 
-              <span style={{ marginLeft: 8 }}>Включить анализ резюме</span>
+              <span style={{ marginLeft: 8, color: 'rgba(255, 255, 255, 0.8)' }}>Включить анализ резюме</span>
             </Form.Item>
 
             <Form.Item
@@ -239,7 +286,7 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
               valuePropName="checked"
             >
               <Switch /> 
-              <span style={{ marginLeft: 8 }}>Включить техническую оценку</span>
+              <span style={{ marginLeft: 8, color: 'rgba(255, 255, 255, 0.8)' }}>Включить техническую оценку</span>
             </Form.Item>
 
             <Form.Item
@@ -249,14 +296,24 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
               <TextArea 
                 rows={4}
                 placeholder="Расскажите о вашем опыте с React&#10;Какие проекты вас больше всего вдохновляют?&#10;Опишите ваш идеальный рабочий процесс"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                name="custom_questions_input"
               />
             </Form.Item>
           </Card>
         )}
 
         {inviteLink && (
-          <Card style={{ marginBottom: 24, backgroundColor: '#f6ffed' }}>
-            <Title level={5}>Ссылка для приглашения</Title>
+          <Card style={{ 
+            marginBottom: 24, 
+            background: 'rgba(82, 196, 26, 0.1)',
+            border: '1px solid rgba(82, 196, 26, 0.3)',
+            borderRadius: '12px'
+          }}>
+            <Title level={5} style={{ color: 'rgba(255, 255, 255, 0.95)' }}>Ссылка для приглашения</Title>
             <Space style={{ width: '100%' }}>
               <Input 
                 value={inviteLink} 
@@ -276,10 +333,26 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
         )}
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-          <Button onClick={handleReset} disabled={loading}>
+          <Button 
+            onClick={handleReset} 
+            disabled={loading}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: 'rgba(255, 255, 255, 0.9)'
+            }}
+          >
             Сбросить
           </Button>
-          <Button onClick={onClose} disabled={loading}>
+          <Button 
+            onClick={onClose} 
+            disabled={loading}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: 'rgba(255, 255, 255, 0.9)'
+            }}
+          >
             Отмена
           </Button>
           <Button 
@@ -288,6 +361,12 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
             loading={loading}
             icon={<SendOutlined />}
             size="large"
+            style={{
+              background: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+              border: 'none',
+              color: '#1a1a2e',
+              fontWeight: 600
+            }}
           >
             Отправить приглашение
           </Button>

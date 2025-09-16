@@ -25,6 +25,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """Создание JWT токена"""
     to_encode = data.copy()
     
+    # Преобразуем user_id в строку для JWT
+    if "sub" in to_encode and isinstance(to_encode["sub"], int):
+        to_encode["sub"] = str(to_encode["sub"])
+    
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -45,10 +49,16 @@ def verify_token(token: str) -> dict:
     
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: int = payload.get("sub")
+        user_id_str: str = payload.get("sub")
         email: str = payload.get("email")
         
-        if user_id is None or email is None:
+        if user_id_str is None or email is None:
+            raise credentials_exception
+        
+        # Преобразуем строковый user_id обратно в int
+        try:
+            user_id = int(user_id_str)
+        except (ValueError, TypeError):
             raise credentials_exception
             
         return {"user_id": user_id, "email": email}

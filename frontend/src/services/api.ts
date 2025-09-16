@@ -143,12 +143,25 @@ class APIService {
   }
 
   // Jobs endpoints
-  async getJobs(): Promise<AxiosResponse> {
-    return this.client.get('/jobs');
+  async getJobs(params?: {
+    skip?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    experience_level?: string;
+    job_type?: string;
+    location?: string;
+    company_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/jobs/', { params });
+  }
+
+  async getJob(jobId: string): Promise<AxiosResponse> {
+    return this.client.get(`/jobs/${jobId}`);
   }
 
   async createJob(jobData: any): Promise<AxiosResponse> {
-    return this.client.post('/jobs', jobData);
+    return this.client.post('/jobs/', jobData);
   }
 
   async updateJob(jobId: string, jobData: any): Promise<AxiosResponse> {
@@ -157,6 +170,10 @@ class APIService {
 
   async deleteJob(jobId: string): Promise<AxiosResponse> {
     return this.client.delete(`/jobs/${jobId}`);
+  }
+
+  async updateJobStatus(jobId: string, newStatus: string): Promise<AxiosResponse> {
+    return this.client.patch(`/jobs/${jobId}/status?new_status=${newStatus}`);
   }
 
   // Interview invitation endpoints
@@ -210,7 +227,8 @@ class APIService {
 }
 
 // Создаем единственный экземпляр API сервиса
-export const authAPI = new APIService();
+const authAPI = new APIService();
+export { authAPI };
 export default authAPI;
 
 

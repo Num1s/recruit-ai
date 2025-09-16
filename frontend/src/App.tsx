@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
-import 'antd/dist/reset.css';
 import './App.css';
 
 // Components
@@ -19,12 +18,15 @@ import CandidateDashboard from './pages/candidate/Dashboard.tsx';
 import CandidateProfile from './pages/candidate/CandidateProfile.tsx';
 import CandidateSettings from './pages/candidate/CandidateSettings.tsx';
 import MatchingCompanies from './pages/candidate/MatchingCompanies.tsx';
+import JobListings from './pages/candidate/JobListings.tsx';
+import JobDetails from './pages/candidate/JobDetails.tsx';
 import CompanyDashboard from './pages/company/Dashboard.tsx';
 import InterviewProcess from './pages/candidate/InterviewProcess.tsx';
 import CandidateReport from './pages/company/CandidateReport.tsx';
 import CompanyProfile from './pages/company/CompanyProfile.tsx';
 import CompanySettings from './pages/company/CompanySettings.tsx';
 import MatchingCandidates from './pages/company/MatchingCandidates.tsx';
+import JobManagement from './pages/company/JobManagement.tsx';
 
 const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
@@ -56,6 +58,8 @@ const AppRoutes: React.FC = () => {
                       <Route path="profile" element={<CandidateProfile />} />
                       <Route path="settings" element={<CandidateSettings />} />
                       <Route path="companies" element={<MatchingCompanies />} />
+                      <Route path="jobs" element={<JobListings />} />
+                      <Route path="jobs/:jobId" element={<JobDetails />} />
                       <Route path="interview/:invitationId" element={<InterviewProcess />} />
                       <Route path="*" element={<Navigate to="/candidate/dashboard" replace />} />
                     </Routes>
@@ -72,6 +76,7 @@ const AppRoutes: React.FC = () => {
                       <Route path="dashboard" element={<CompanyDashboard />} />
                       <Route path="candidates" element={<MatchingCandidates />} />
                       <Route path="candidate/:candidateId/report" element={<CandidateReport />} />
+                      <Route path="jobs" element={<JobManagement />} />
                       <Route path="profile" element={<CompanyProfile />} />
                       <Route path="settings" element={<CompanySettings />} />
                       <Route path="*" element={<Navigate to="/company/dashboard" replace />} />
@@ -91,55 +96,55 @@ const App: React.FC = () => {
     <ConfigProvider 
       locale={ruRU}
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: theme.defaultAlgorithm,
         token: {
-          colorPrimary: '#a8edea',
+          colorPrimary: '#667eea',
           colorSuccess: '#52c41a',
           colorWarning: '#faad14',
           colorError: '#ff4d4f',
-          colorInfo: '#1890ff',
-          borderRadius: 12,
+          colorInfo: '#667eea',
+          borderRadius: 8,
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif',
           fontSize: 14,
           lineHeight: 1.5,
-          colorBgBase: 'rgba(255, 255, 255, 0.08)',
+          colorBgBase: '#0f0f23',
           colorBgContainer: 'rgba(255, 255, 255, 0.08)',
-          colorBgElevated: 'rgba(255, 255, 255, 0.12)',
-          colorText: 'rgba(255, 255, 255, 0.85)',
-          colorTextSecondary: 'rgba(255, 255, 255, 0.65)',
-          colorTextTertiary: 'rgba(255, 255, 255, 0.45)',
+          colorBgElevated: 'rgba(255, 255, 255, 0.1)',
+          colorText: '#ffffff',
+          colorTextSecondary: 'rgba(255, 255, 255, 0.7)',
+          colorTextTertiary: 'rgba(255, 255, 255, 0.5)',
           colorBorder: 'rgba(255, 255, 255, 0.15)',
           colorBorderSecondary: 'rgba(255, 255, 255, 0.1)',
         },
         components: {
           Button: {
-            borderRadius: 12,
-            fontWeight: 600,
-            primaryShadow: '0 4px 16px rgba(168, 237, 234, 0.3)',
-            defaultActiveBg: 'rgba(255, 255, 255, 0.15)',
-            defaultHoverBg: 'rgba(255, 255, 255, 0.1)',
+            borderRadius: 8,
+            fontWeight: 500,
+            primaryShadow: '0 2px 8px rgba(102, 126, 234, 0.2)',
+            defaultActiveBg: 'rgba(255, 255, 255, 0.1)',
+            defaultHoverBg: 'rgba(255, 255, 255, 0.15)',
           },
           Card: {
-            borderRadius: 16,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            borderRadius: 12,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
             headerBg: 'rgba(255, 255, 255, 0.05)',
             colorBgContainer: 'rgba(255, 255, 255, 0.08)',
           },
           Input: {
-            borderRadius: 10,
-            colorBgContainer: 'rgba(255, 255, 255, 0.08)',
-            activeBorderColor: '#a8edea',
-            hoverBorderColor: 'rgba(168, 237, 234, 0.5)',
+            borderRadius: 8,
+            colorBgContainer: 'rgba(255, 255, 255, 0.1)',
+            activeBorderColor: '#667eea',
+            hoverBorderColor: '#8b9cf7',
           },
           Table: {
-            headerBg: 'rgba(255, 255, 255, 0.1)',
-            rowHoverBg: 'rgba(255, 255, 255, 0.1)',
-            colorBgContainer: 'transparent',
+            headerBg: 'rgba(255, 255, 255, 0.05)',
+            rowHoverBg: 'rgba(255, 255, 255, 0.05)',
+            colorBgContainer: 'rgba(255, 255, 255, 0.08)',
           },
           Tabs: {
-            inkBarColor: '#a8edea',
-            itemActiveColor: '#a8edea',
-            itemHoverColor: 'rgba(168, 237, 234, 0.7)',
+            inkBarColor: '#667eea',
+            itemActiveColor: '#667eea',
+            itemHoverColor: '#8b9cf7',
           },
           Tag: {
             colorBgContainer: 'rgba(255, 255, 255, 0.1)',
@@ -147,14 +152,14 @@ const App: React.FC = () => {
           },
           Dropdown: {
             colorBgElevated: 'rgba(26, 26, 46, 0.95)',
-            colorBorder: 'rgba(255, 255, 255, 0.15)',
+            colorBorder: 'rgba(255, 255, 255, 0.2)',
           },
           Modal: {
             contentBg: 'rgba(26, 26, 46, 0.95)',
             headerBg: 'rgba(255, 255, 255, 0.05)',
           },
           Progress: {
-            colorSuccess: '#a8edea',
+            colorSuccess: '#52c41a',
             remainingColor: 'rgba(255, 255, 255, 0.1)',
           },
         },

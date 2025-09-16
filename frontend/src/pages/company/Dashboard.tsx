@@ -30,6 +30,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 import InviteCandidate from '../../components/company/InviteCandidate.tsx';
 import AIInsights from '../../components/company/AIInsights.tsx';
+import CreateJobModal from '../../components/company/CreateJobModal.tsx';
 
 const { Title, Text } = Typography;
 
@@ -60,6 +61,7 @@ const CompanyDashboard: React.FC = () => {
   const [vacancies, setVacancies] = useState<JobVacancy[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+  const [createJobModalVisible, setCreateJobModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState<{ id: string; title: string } | null>(null);
 
   useEffect(() => {
@@ -173,6 +175,9 @@ const CompanyDashboard: React.FC = () => {
     switch (key) {
       case 'profile':
         navigate('/company/profile');
+        break;
+      case 'jobs':
+        navigate('/company/jobs');
         break;
       case 'settings':
         navigate('/company/settings');
@@ -314,6 +319,11 @@ const CompanyDashboard: React.FC = () => {
       label: 'Профиль компании',
     },
     {
+      key: 'jobs',
+      icon: <FolderOutlined />,
+      label: 'Управление вакансиями',
+    },
+    {
       key: 'settings',
       icon: <SettingOutlined />,
       label: 'Настройки',
@@ -358,6 +368,7 @@ const CompanyDashboard: React.FC = () => {
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
+            onClick={() => setCreateJobModalVisible(true)}
           >
             Создать вакансию
           </Button>
@@ -493,6 +504,15 @@ const CompanyDashboard: React.FC = () => {
         onClose={() => setInviteModalVisible(false)}
         jobId={selectedJob?.id}
         jobTitle={selectedJob?.title}
+      />
+
+      <CreateJobModal
+        visible={createJobModalVisible}
+        onClose={() => setCreateJobModalVisible(false)}
+        onSuccess={() => {
+          // Перезагружаем данные после создания вакансии
+          loadDashboardData();
+        }}
       />
     </div>
   );

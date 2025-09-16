@@ -8,6 +8,13 @@ interface User {
   first_name: string;
   last_name: string;
   role: 'candidate' | 'company' | 'admin';
+  company_profile?: {
+    id: number;
+    company_name: string;
+  };
+  candidate_profile?: {
+    id: number;
+  };
 }
 
 interface AuthContextType {
