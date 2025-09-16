@@ -23,7 +23,8 @@ import {
   TeamOutlined,
   FolderOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  SearchOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -168,6 +169,22 @@ const CompanyDashboard: React.FC = () => {
     setInviteModalVisible(true);
   };
 
+  const handleMenuClick = (key: string) => {
+    switch (key) {
+      case 'profile':
+        navigate('/company/profile');
+        break;
+      case 'settings':
+        navigate('/company/settings');
+        break;
+      case 'logout':
+        logout();
+        break;
+      default:
+        break;
+    }
+  };
+
   const candidateColumns = [
     {
       title: 'Кандидат',
@@ -308,7 +325,6 @@ const CompanyDashboard: React.FC = () => {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: 'Выйти',
-      onClick: logout,
     },
   ];
 
@@ -327,6 +343,13 @@ const CompanyDashboard: React.FC = () => {
         <Space>
           <Button 
             type="default" 
+            icon={<SearchOutlined />}
+            onClick={() => navigate('/company/candidates')}
+          >
+            Найти кандидатов
+          </Button>
+          <Button 
+            type="default" 
             icon={<PlusOutlined />}
             onClick={() => handleInviteCandidate()}
           >
@@ -339,7 +362,10 @@ const CompanyDashboard: React.FC = () => {
             Создать вакансию
           </Button>
           <Dropdown 
-            menu={{ items: userMenuItems }}
+            menu={{ 
+              items: userMenuItems,
+              onClick: ({ key }) => handleMenuClick(key)
+            }}
             placement="bottomRight"
           >
             <Space style={{ cursor: 'pointer' }}>

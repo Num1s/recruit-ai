@@ -83,6 +83,28 @@ class CandidateProfile(CandidateProfileBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
+    @validator('skills', pre=True)
+    def parse_skills(cls, v):
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except:
+                # Если не JSON, разбиваем по запятой
+                return [skill.strip() for skill in v.split(',') if skill.strip()]
+        return v
+    
+    @validator('preferred_locations', pre=True)
+    def parse_preferred_locations(cls, v):
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except:
+                # Если не JSON, разбиваем по запятой
+                return [loc.strip() for loc in v.split(',') if loc.strip()]
+        return v
+    
     class Config:
         from_attributes = True
 
@@ -97,6 +119,7 @@ class CompanyProfileBase(BaseModel):
     address: Optional[str] = None
     city: Optional[str] = None
     country: str = "Kyrgyzstan"
+    technologies: Optional[List[str]] = None
 
 class CompanyProfileCreate(CompanyProfileBase):
     """Схема создания профиля компании"""
@@ -116,6 +139,17 @@ class CompanyProfile(CompanyProfileBase):
     subscription_plan: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    @validator('technologies', pre=True)
+    def parse_technologies(cls, v):
+        if isinstance(v, str):
+            try:
+                import json
+                return json.loads(v)
+            except:
+                # Если не JSON, разбиваем по запятой
+                return [tech.strip() for tech in v.split(',') if tech.strip()]
+        return v
     
     class Config:
         from_attributes = True

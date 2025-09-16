@@ -8,7 +8,8 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   FileTextOutlined,
-  SettingOutlined
+  SettingOutlined,
+  BuildOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -142,6 +143,22 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleMenuClick = (key: string) => {
+    switch (key) {
+      case 'profile':
+        navigate('/candidate/profile');
+        break;
+      case 'settings':
+        navigate('/candidate/settings');
+        break;
+      case 'logout':
+        logout();
+        break;
+      default:
+        break;
+    }
+  };
+
   const userMenuItems = [
     {
       key: 'profile',
@@ -160,7 +177,6 @@ const Dashboard: React.FC = () => {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: 'Выйти',
-      onClick: logout,
     },
   ];
 
@@ -175,13 +191,22 @@ const Dashboard: React.FC = () => {
         <Space>
           <NotificationCenter userId={user?.id.toString() || ''} />
           <Button 
+            icon={<BuildOutlined />} 
+            onClick={() => navigate('/candidate/companies')}
+          >
+            Найти компании
+          </Button>
+          <Button 
             icon={<UploadOutlined />} 
             onClick={() => setUploadModalVisible(true)}
           >
             Загрузить резюме
           </Button>
           <Dropdown 
-            menu={{ items: userMenuItems }}
+            menu={{ 
+              items: userMenuItems,
+              onClick: ({ key }) => handleMenuClick(key)
+            }}
             placement="bottomRight"
           >
             <Space style={{ cursor: 'pointer' }}>

@@ -58,7 +58,13 @@ class CandidateProfile(Base):
     skills = Column(Text, nullable=True)  # JSON array as text
     preferred_salary_min = Column(Integer, nullable=True)
     preferred_salary_max = Column(Integer, nullable=True)
+    expected_salary_min = Column(Integer, nullable=True)  # Дублируем для совместимости
+    expected_salary_max = Column(Integer, nullable=True)  # Дублируем для совместимости
     preferred_locations = Column(Text, nullable=True)  # JSON array as text
+    availability = Column(String, nullable=True)  # available, busy, not_looking
+    education = Column(String, nullable=True)
+    languages = Column(Text, nullable=True)  # JSON array as text
+    achievements = Column(Text, nullable=True)
     
     # CV информация
     cv_filename = Column(String, nullable=True)
@@ -91,6 +97,11 @@ class CompanyProfile(Base):
     company_size = Column(String, nullable=True)  # "1-10", "11-50", etc.
     website = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
+    technologies = Column(Text, nullable=True)  # JSON array as text
+    benefits = Column(Text, nullable=True)
+    remote_work = Column(Boolean, default=False)
+    founded_year = Column(Integer, nullable=True)
+    location = Column(String, nullable=True)
     
     # Контактная информация
     address = Column(String, nullable=True)

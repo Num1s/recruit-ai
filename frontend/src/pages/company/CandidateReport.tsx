@@ -26,6 +26,7 @@ import {
   PlayCircleOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useNotification } from '../../contexts/NotificationContext.tsx';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -92,6 +93,7 @@ interface CandidateReportData {
 const CandidateReport: React.FC = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useNotification();
   const [reportData, setReportData] = useState<CandidateReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -182,9 +184,17 @@ const CandidateReport: React.FC = () => {
 
       setReportData(mockReport);
       setLoading(false);
+      showSuccess({
+        title: 'Отчет загружен',
+        message: 'Данные кандидата успешно загружены'
+      });
     } catch (error) {
       console.error('Ошибка загрузки отчета:', error);
       setLoading(false);
+      showError({
+        title: 'Ошибка загрузки',
+        message: 'Не удалось загрузить отчет кандидата. Попробуйте позже.'
+      });
     }
   };
 
@@ -711,44 +721,111 @@ const CandidateReport: React.FC = () => {
   );
 
   if (loading) {
-    return <Card loading style={{ margin: 24 }} />;
+    return (
+      <div className="report-container">
+        <div className="report-header-section">
+          <div className="report-hero">
+            <div className="report-hero-content">
+              <Avatar size={80} icon={<UserOutlined />} className="report-avatar" />
+              <div className="report-hero-text">
+                <Title level={2} className="report-hero-title">
+                  Загрузка отчета...
+                </Title>
+                <Text className="report-hero-subtitle">
+                  Анализируем данные кандидата
+                </Text>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="report-content">
+          <Card className="report-tabs-card" loading />
+        </div>
+      </div>
+    );
   }
 
   if (!reportData) {
     return (
-      <div style={{ padding: 24 }}>
-        <Alert message="Отчет не найден" type="error" />
+      <div className="report-container">
+        <div className="report-header-section">
+          <div className="report-hero">
+            <div className="report-hero-content">
+              <Avatar size={80} icon={<UserOutlined />} className="report-avatar" />
+              <div className="report-hero-text">
+                <Title level={2} className="report-hero-title">
+                  Отчет не найден
+                </Title>
+                <Text className="report-hero-subtitle">
+                  Не удалось загрузить данные кандидата
+                </Text>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="report-content">
+          <Card className="report-tabs-card">
+            <Alert 
+              message="Отчет не найден" 
+              description="Возможно, отчет еще не готов или произошла ошибка при загрузке данных."
+              type="error" 
+              showIcon
+              action={
+                <Button 
+                  size="small" 
+                  type="primary" 
+                  onClick={() => window.location.reload()}
+                >
+                  Обновить
+                </Button>
+              }
+            />
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 24, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
-      <div style={{ marginBottom: 24 }}>
+    <div className="report-container">
+      <div className="report-header-section">
         <Button 
           icon={<ArrowLeftOutlined />} 
           onClick={() => navigate('/company/dashboard')}
-          style={{ marginBottom: 16 }}
+          className="report-back-button"
         >
           Назад к списку кандидатов
         </Button>
         
-        <Card className="report-header" style={{ textAlign: 'center' }}>
-          <Title level={2} style={{ color: 'white', margin: 0 }}>
-            Отчет по кандидату: {reportData.candidate.name}
-          </Title>
-          <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px' }}>
-            {reportData.candidate.position}
-          </Text>
-        </Card>
+        <div className="report-hero">
+          <div className="report-hero-content">
+            <Avatar size={80} icon={<UserOutlined />} className="report-avatar" />
+            <div className="report-hero-text">
+              <Title level={2} className="report-hero-title">
+                {reportData.candidate.name}
+              </Title>
+              <Text className="report-hero-subtitle">
+                {reportData.candidate.position}
+              </Text>
+              <div className="report-hero-score">
+                <Text className="report-score-label">Общий балл:</Text>
+                <div className="report-score-value">
+                  {reportData.overall.score}/5
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <Card>
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={setActiveTab} 
-          size="large"
-          items={[
+      <div className="report-content">
+        <Card className="report-tabs-card">
+          <Tabs 
+            activeKey={activeTab} 
+            onChange={setActiveTab} 
+            size="large"
+            className="report-tabs"
+            items={[
             {
               key: 'overview',
               label: 'Overview',
@@ -802,13 +879,11 @@ const CandidateReport: React.FC = () => {
               children: renderKeyAttributes(),
             },
           ]}
-        />
-      </Card>
+          />
+        </Card>
+      </div>
     </div>
   );
 };
 
 export default CandidateReport;
-
-
-

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, Typography, Alert, Select, Radio } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, BankOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, Alert, Select, Radio, Space } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, BankOutlined, UserAddOutlined } from '@ant-design/icons';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 
@@ -71,12 +71,12 @@ const RegisterPage: React.FC = () => {
 
   return (
     <div className="auth-container">
-      <Card className="auth-form" style={{ maxWidth: 500, width: '100%' }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ color: '#1890ff', marginBottom: 8 }}>
+      <Card className="auth-form">
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <Title level={2} className="auth-title">
             Recruit.ai
           </Title>
-          <Text type="secondary">Создайте новый аккаунт</Text>
+          <Text className="auth-subtitle">Создайте новый аккаунт</Text>
         </div>
 
         {error && (
@@ -221,22 +221,23 @@ const RegisterPage: React.FC = () => {
               loading={loading}
               block
               size="large"
+              icon={!loading && <UserAddOutlined />}
             >
-              Зарегистрироваться
+              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
             </Button>
           </Form.Item>
 
-          <div style={{ textAlign: 'center' }}>
-            <Text type="secondary">
+          <div className="auth-link">
+            <Text>
               Уже есть аккаунт?{' '}
-              <Link to="/login" style={{ color: '#1890ff' }}>
+              <Link to="/login">
                 Войти
               </Link>
             </Text>
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 16 }}>
-            <Link to="/" style={{ color: '#666' }}>
+          <div className="auth-link" style={{ marginTop: 16 }}>
+            <Link to="/">
               ← Вернуться на главную
             </Link>
           </div>

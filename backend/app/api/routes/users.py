@@ -17,6 +17,7 @@ from ...schemas.user import (
     UserUpdate, CandidateProfileUpdate, CompanyProfileUpdate,
     CandidateWithProfile, CompanyWithProfile
 )
+from typing import List, Optional
 from ...core.exceptions import ValidationError, NotFoundError
 
 router = APIRouter()
@@ -223,6 +224,158 @@ async def upload_avatar(
         "avatar_url": f"/uploads/avatars/{unique_filename}"
     }
 
+@router.get("/candidates", response_model=List[CandidateWithProfile])
+async def get_candidates(
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None,
+    skills: Optional[str] = None,
+    experience_min: Optional[int] = None,
+    experience_max: Optional[int] = None,
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    availability: Optional[str] = None,
+    db: Session = Depends(get_db)
+) -> Any:
+    """Получение списка кандидатов с фильтрацией"""
+    
+    query = db.query(User).outerjoin(CandidateProfile).filter(User.role == "CANDIDATE")
+    
+    # Поиск по имени или email
+    if search:
+        query = query.filter(
+            (User.first_name.ilike(f"%{search}%")) |
+            (User.last_name.ilike(f"%{search}%")) |
+            (User.email.ilike(f"%{search}%"))
+        )
+    
+    # Фильтр по навыкам
+    if skills:
+        skills_list = [skill.strip() for skill in skills.split(",")]
+        for skill in skills_list:
+            query = query.filter(CandidateProfile.skills.ilike(f"%{skill}%"))
+    
+    # Фильтр по опыту
+    if experience_min is not None:
+        query = query.filter(CandidateProfile.experience_years >= experience_min)
+    if experience_max is not None:
+        query = query.filter(CandidateProfile.experience_years <= experience_max)
+    
+    # Фильтр по зарплате
+    if salary_min is not None:
+        query = query.filter(CandidateProfile.expected_salary_min >= salary_min)
+    if salary_max is not None:
+        query = query.filter(CandidateProfile.expected_salary_max <= salary_max)
+    
+    # Фильтр по доступности
+    if availability:
+        query = query.filter(CandidateProfile.availability == availability)
+    
+    candidates = query.offset(skip).limit(limit).all()
+    return candidates
 
+@router.get("/companies", response_model=List[CompanyWithProfile])
+async def get_companies(
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None,
+    industry: Optional[str] = None,
+    size: Optional[str] = None,
+    location: Optional[str] = None,
+    technologies: Optional[str] = None,
+    remote_work: Optional[bool] = None,
+    db: Session = Depends(get_db)
+) -> Any:
+    """Получение списка компаний с фильтрацией"""
+    
+    query = db.query(User).outerjoin(CompanyProfile).filter(User.role == "COMPANY")
+    
+    # Поиск по названию компании или описанию
+    if search:
+        query = query.filter(
+            (CompanyProfile.company_name.ilike(f"%{search}%")) |
+            (CompanyProfile.description.ilike(f"%{search}%"))
+        )
+    
+    # Фильтр по отрасли
+    if industry:
+        query = query.filter(CompanyProfile.industry == industry)
+    
+    # Фильтр по размеру
+    if size:
+        query = query.filter(CompanyProfile.company_size == size)
+    
+    # Фильтр по локации
+    if location:
+        query = query.filter(CompanyProfile.location.ilike(f"%{location}%"))
+    
+    # Фильтр по технологиям
+    if technologies:
+        tech_list = [tech.strip() for tech in technologies.split(",")]
+        for tech in tech_list:
+            query = query.filter(CompanyProfile.technologies.ilike(f"%{tech}%"))
+    
+    # Фильтр по удаленной работе
+    if remote_work is not None:
+        query = query.filter(CompanyProfile.remote_work == remote_work)
+    
+    companies = query.offset(skip).limit(limit).all()
+    return companies
 
+@router.post("/candidates/{candidate_id}/invite")
+async def invite_candidate(
+    candidate_id: int,
+    current_user: User = Depends(get_current_company),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Отправка приглашения кандидату от компании"""
+    
+    # Проверяем, что текущий пользователь - компания
+    if current_user.role != "COMPANY":
+        raise ValidationError("Только компании могут отправлять приглашения")
+    
+    # Находим кандидата
+    candidate = db.query(User).filter(
+        User.id == candidate_id,
+        User.role == "CANDIDATE"
+    ).first()
+    
+    if not candidate:
+        raise NotFoundError("Кандидат не найден")
+    
+    # Здесь можно добавить логику создания приглашения
+    # Пока возвращаем успешный ответ
+    
+    return {
+        "message": f"Приглашение отправлено кандидату {candidate.first_name} {candidate.last_name}",
+        "candidate_id": candidate_id
+    }
 
+@router.post("/companies/{company_id}/apply")
+async def apply_to_company(
+    company_id: int,
+    current_user: User = Depends(get_current_candidate),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Подача заявки в компанию от кандидата"""
+    
+    # Проверяем, что текущий пользователь - кандидат
+    if current_user.role != "CANDIDATE":
+        raise ValidationError("Только кандидаты могут подавать заявки")
+    
+    # Находим компанию
+    company = db.query(User).filter(
+        User.id == company_id,
+        User.role == "COMPANY"
+    ).first()
+    
+    if not company:
+        raise NotFoundError("Компания не найдена")
+    
+    # Здесь можно добавить логику создания заявки
+    # Пока возвращаем успешный ответ
+    
+    return {
+        "message": f"Заявка отправлена в компанию {company.first_name}",
+        "company_id": company_id
+    }

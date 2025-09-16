@@ -70,7 +70,7 @@ const InterviewProcess: React.FC = () => {
 
   useEffect(() => {
     // Таймер для интервью
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
     if (interviewStarted && timeRemaining > 0) {
       interval = setInterval(() => {
         setTimeRemaining(prev => {
@@ -200,120 +200,135 @@ const InterviewProcess: React.FC = () => {
     switch (currentStep) {
       case 'upload-cv':
         return (
-          <div style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
-            <Title level={3}>Загрузка резюме</Title>
-            <Paragraph>
-              Пожалуйста, загрузите ваше резюме. AI будет использовать его для создания персонализированных вопросов.
-            </Paragraph>
-            
-            <Upload.Dragger
-              name="cv"
-              multiple={false}
-              accept=".pdf,.docx,.doc"
-              beforeUpload={handleUploadCV}
-              style={{ marginBottom: 24 }}
-            >
-              <p className="ant-upload-drag-icon">
-                <UploadOutlined />
-              </p>
-              <p className="ant-upload-text">Нажмите или перетащите файл для загрузки</p>
-              <p className="ant-upload-hint">
-                Поддерживаются форматы: PDF, DOCX, DOC
-              </p>
-            </Upload.Dragger>
+          <div className="interview-step-container">
+            <Card className="interview-step-card">
+              <div className="interview-step-content">
+                <Title level={3} className="interview-step-title">Загрузка резюме</Title>
+                <Paragraph className="interview-step-description">
+                  Пожалуйста, загрузите ваше резюме. AI будет использовать его для создания персонализированных вопросов.
+                </Paragraph>
+                
+                <Upload.Dragger
+                  name="cv"
+                  multiple={false}
+                  accept=".pdf,.docx,.doc"
+                  beforeUpload={handleUploadCV}
+                  className="interview-upload-dragger"
+                >
+                  <p className="ant-upload-drag-icon">
+                    <UploadOutlined />
+                  </p>
+                  <p className="ant-upload-text">Нажмите или перетащите файл для загрузки</p>
+                  <p className="ant-upload-hint">
+                    Поддерживаются форматы: PDF, DOCX, DOC
+                  </p>
+                </Upload.Dragger>
+              </div>
+            </Card>
           </div>
         );
 
       case 'equipment-check':
         return (
-          <div style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
-            <Title level={3}>Проверка оборудования</Title>
-            <Paragraph>
-              Убедитесь, что ваша камера и микрофон работают корректно.
-            </Paragraph>
-            
-            <div style={{ marginBottom: 24, border: '2px solid #d9d9d9', borderRadius: 8, overflow: 'hidden' }}>
-              <Webcam
-                ref={webcamRef}
-                audio={true}
-                width="100%"
-                height={300}
-                screenshotFormat="image/jpeg"
-              />
-            </div>
-            
-            <Space>
-              <Alert
-                message={devicePermissions.camera ? "Камера работает" : "Нет доступа к камере"}
-                type={devicePermissions.camera ? "success" : "error"}
-                icon={<VideoCameraOutlined />}
-              />
-              <Alert
-                message={devicePermissions.microphone ? "Микрофон работает" : "Нет доступа к микрофону"}
-                type={devicePermissions.microphone ? "success" : "error"}
-                icon={<AudioOutlined />}
-              />
-            </Space>
-            
-            <div style={{ marginTop: 24 }}>
-              <Button type="primary" size="large" onClick={handleEquipmentCheck}>
-                Всё работает → Далее
-              </Button>
-            </div>
+          <div className="interview-step-container">
+            <Card className="interview-step-card">
+              <div className="interview-step-content">
+                <Title level={3} className="interview-step-title">Проверка оборудования</Title>
+                <Paragraph className="interview-step-description">
+                  Убедитесь, что ваша камера и микрофон работают корректно.
+                </Paragraph>
+                
+                <div className="interview-webcam-container">
+                  <Webcam
+                    ref={webcamRef}
+                    audio={true}
+                    width="100%"
+                    height={300}
+                    screenshotFormat="image/jpeg"
+                  />
+                </div>
+                
+                <Space className="interview-device-status">
+                  <Alert
+                    message={devicePermissions.camera ? "Камера работает" : "Нет доступа к камере"}
+                    type={devicePermissions.camera ? "success" : "error"}
+                    icon={<VideoCameraOutlined />}
+                    className="interview-device-alert"
+                  />
+                  <Alert
+                    message={devicePermissions.microphone ? "Микрофон работает" : "Нет доступа к микрофону"}
+                    type={devicePermissions.microphone ? "success" : "error"}
+                    icon={<AudioOutlined />}
+                    className="interview-device-alert"
+                  />
+                </Space>
+                
+                <div className="interview-step-actions">
+                  <Button type="primary" size="large" onClick={handleEquipmentCheck} className="interview-next-button">
+                    Всё работает → Далее
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         );
 
       case 'language-select':
         return (
-          <div style={{ textAlign: 'center', maxWidth: 400, margin: '0 auto' }}>
-            <Title level={3}>Выбор языка интервью</Title>
-            <Paragraph>
-              На каком языке вы хотите проводить интервью?
-            </Paragraph>
-            
-            <Select
-              value={selectedLanguage}
-              onChange={setSelectedLanguage}
-              size="large"
-              style={{ width: 200, marginBottom: 24 }}
-            >
-              <Option value="ru">Русский</Option>
-              <Option value="en">English</Option>
-              <Option value="ky">Кыргызча</Option>
-            </Select>
-            
-            <div>
-              <Button type="primary" size="large" onClick={handleLanguageSelect}>
-                Продолжить
-              </Button>
-            </div>
+          <div className="interview-step-container">
+            <Card className="interview-step-card">
+              <div className="interview-step-content">
+                <Title level={3} className="interview-step-title">Выбор языка интервью</Title>
+                <Paragraph className="interview-step-description">
+                  На каком языке вы хотите проводить интервью?
+                </Paragraph>
+                
+                <Select
+                  value={selectedLanguage}
+                  onChange={setSelectedLanguage}
+                  size="large"
+                  className="interview-language-select"
+                >
+                  <Option value="ru">Русский</Option>
+                  <Option value="en">English</Option>
+                  <Option value="ky">Кыргызча</Option>
+                </Select>
+                
+                <div className="interview-step-actions">
+                  <Button type="primary" size="large" onClick={handleLanguageSelect} className="interview-next-button">
+                    Продолжить
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         );
 
       case 'ai-interview':
         return (
-          <div className="interview-container">
-            <div className="interview-header-bar">
+          <div className="interview-fullscreen-container">
+            <div className="interview-fullscreen-header">
               <Space>
-                <Text strong>Вопрос {currentQuestion + 1} из {mockQuestions.length}</Text>
-                <Text>|</Text>
-                <Text>Осталось: {formatTime(timeRemaining)}</Text>
+                <Text strong className="interview-question-counter">Вопрос {currentQuestion + 1} из {mockQuestions.length}</Text>
+                <Text className="interview-separator">|</Text>
+                <Text className="interview-timer">Осталось: {formatTime(timeRemaining)}</Text>
               </Space>
               <Space>
-                {isRecording && <Text type="danger">● Запись</Text>}
+                {isRecording && <Text type="danger" className="interview-recording-indicator">● Запись</Text>}
                 <Button 
                   danger 
                   onClick={handleCompleteInterview}
                   icon={<StopOutlined />}
+                  className="interview-complete-button"
                 >
                   Завершить
                 </Button>
               </Space>
             </div>
             
-            <div className="interview-main">
-              <div className="video-section">
-                <div className="candidate-video">
+            <div className="interview-fullscreen-main">
+              <div className="interview-video-section">
+                <div className="interview-candidate-video">
                   <Webcam
                     ref={webcamRef}
                     audio={true}
@@ -323,24 +338,24 @@ const InterviewProcess: React.FC = () => {
                   />
                 </div>
                 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div className="ai-avatar">
-                    <Text style={{ color: 'white', fontSize: '24px' }}>AI</Text>
+                <div className="interview-ai-avatar-container">
+                  <div className="interview-ai-avatar">
+                    <Text className="interview-ai-text">AI</Text>
                   </div>
                 </div>
               </div>
               
-              <Card className="question-section">
-                <div className="speaking-indicator">
+              <Card className="interview-question-card">
+                <div className="interview-speaking-indicator">
                   <AudioOutlined />
                   <Text>AI задает вопрос...</Text>
                 </div>
                 
-                <div className="question-text">
+                <div className="interview-question-text">
                   {mockQuestions[currentQuestion]?.question}
                 </div>
                 
-                <div style={{ marginTop: 16 }}>
+                <div className="interview-question-category">
                   <Text type="secondary">
                     Категория: {mockQuestions[currentQuestion]?.category}
                   </Text>
@@ -348,23 +363,25 @@ const InterviewProcess: React.FC = () => {
               </Card>
               
               {!interviewStarted ? (
-                <div style={{ textAlign: 'center' }}>
+                <div className="interview-controls">
                   <Button 
                     type="primary" 
                     size="large" 
                     icon={<PlayCircleOutlined />}
                     onClick={startInterview}
+                    className="interview-start-button"
                   >
                     Начать интервью
                   </Button>
                 </div>
               ) : (
-                <div style={{ textAlign: 'center' }}>
+                <div className="interview-controls">
                   <Button 
                     type="primary" 
                     size="large"
                     onClick={nextQuestion}
                     disabled={currentQuestion >= mockQuestions.length - 1}
+                    className="interview-next-question-button"
                   >
                     Следующий вопрос
                   </Button>
@@ -376,44 +393,52 @@ const InterviewProcess: React.FC = () => {
 
       case 'completed':
         return (
-          <div style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto' }}>
-            <CheckCircleOutlined style={{ fontSize: '4rem', color: '#52c41a', marginBottom: '1rem' }} />
-            <Title level={2}>Интервью завершено!</Title>
-            <Paragraph style={{ fontSize: '16px' }}>
-              Спасибо за прохождение интервью. AI проанализирует ваши ответы и подготовит детальный отчет для компании.
-            </Paragraph>
-            <Paragraph type="secondary">
-              Результаты будут доступны в вашем личном кабинете после обработки.
-            </Paragraph>
-            
-            <Button type="primary" size="large" onClick={handleBackToDashboard}>
-              Вернуться в личный кабинет
-            </Button>
+          <div className="interview-step-container">
+            <Card className="interview-step-card">
+              <div className="interview-step-content">
+                <CheckCircleOutlined className="interview-completion-icon" />
+                <Title level={2} className="interview-step-title">Интервью завершено!</Title>
+                <Paragraph className="interview-step-description">
+                  Спасибо за прохождение интервью. AI проанализирует ваши ответы и подготовит детальный отчет для компании.
+                </Paragraph>
+                <Paragraph type="secondary" className="interview-completion-note">
+                  Результаты будут доступны в вашем личном кабинете после обработки.
+                </Paragraph>
+                
+                <div className="interview-step-actions">
+                  <Button type="primary" size="large" onClick={handleBackToDashboard} className="interview-next-button">
+                    Вернуться в личный кабинет
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         );
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: currentStep === 'ai-interview' ? '#1a1a1a' : '#f5f5f5' }}>
+    <div className="interview-container">
       {currentStep !== 'ai-interview' && (
-        <div style={{ padding: '2rem', backgroundColor: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="interview-header">
+          <div className="interview-header-content">
             <Button 
               icon={<ArrowLeftOutlined />} 
               onClick={handleBackToDashboard}
-              type="text"
+              className="interview-back-button"
             >
               Назад к списку
             </Button>
             
-            <div style={{ flex: 1, maxWidth: 600, margin: '0 2rem' }}>
+            <div className="interview-progress-section">
               <Progress 
                 percent={progress} 
                 showInfo={false}
-                strokeColor="#1890ff"
+                strokeColor="#a8edea"
+                trailColor="rgba(255, 255, 255, 0.1)"
+                className="interview-progress"
               />
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '12px', color: '#999' }}>
+              <div className="interview-progress-labels">
                 <span>Загрузка резюме</span>
                 <span>Проверка</span>
                 <span>Язык</span>
@@ -421,15 +446,12 @@ const InterviewProcess: React.FC = () => {
               </div>
             </div>
             
-            <div style={{ width: 100 }}></div>
+            <div className="interview-header-spacer"></div>
           </div>
         </div>
       )}
       
-      <div style={{ 
-        padding: currentStep === 'ai-interview' ? 0 : '3rem 2rem',
-        minHeight: currentStep === 'ai-interview' ? '100vh' : 'auto'
-      }}>
+      <div className={`interview-content ${currentStep === 'ai-interview' ? 'interview-content-fullscreen' : ''}`}>
         {renderStepContent()}
       </div>
     </div>

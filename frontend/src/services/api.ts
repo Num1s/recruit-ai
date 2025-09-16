@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = (window as any).env?.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 class APIService {
   private client: AxiosInstance;
@@ -157,6 +157,55 @@ class APIService {
 
   async deleteJob(jobId: string): Promise<AxiosResponse> {
     return this.client.delete(`/jobs/${jobId}`);
+  }
+
+  // Interview invitation endpoints
+  async sendInterviewInvitation(invitationData: any): Promise<AxiosResponse> {
+    return this.client.post('/interviews/invite', invitationData);
+  }
+
+  async getInterviewLink(invitationId: string): Promise<AxiosResponse> {
+    return this.client.get(`/interviews/link/${invitationId}`);
+  }
+
+  async resendInvitation(invitationId: string): Promise<AxiosResponse> {
+    return this.client.post(`/interviews/resend/${invitationId}`);
+  }
+
+  // Новые методы для работы с кандидатами и компаниями
+  async getCandidates(params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    skills?: string;
+    experience_min?: number;
+    experience_max?: number;
+    salary_min?: number;
+    salary_max?: number;
+    availability?: string;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/users/candidates', { params });
+  }
+
+  async getCompanies(params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    industry?: string;
+    size?: string;
+    location?: string;
+    technologies?: string;
+    remote_work?: boolean;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/users/companies', { params });
+  }
+
+  async inviteCandidate(candidateId: number): Promise<AxiosResponse> {
+    return this.client.post(`/users/candidates/${candidateId}/invite`);
+  }
+
+  async applyToCompany(companyId: number): Promise<AxiosResponse> {
+    return this.client.post(`/users/companies/${companyId}/apply`);
   }
 }
 
