@@ -6,7 +6,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Foreign
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
-from ..core.database import Base
+from app.core.database import Base
 
 class JobStatus(enum.Enum):
     """Статусы вакансий"""
@@ -71,7 +71,9 @@ class Job(Base):
     
     # Relationships
     company = relationship("CompanyProfile", back_populates="jobs")
+    job_applications = relationship("JobApplication", back_populates="job")
     interview_invitations = relationship("InterviewInvitation", back_populates="job")
+    interview_reports = relationship("InterviewReport", back_populates="job")
 
 class InvitationStatus(enum.Enum):
     """Статусы приглашений на интервью"""
@@ -83,6 +85,42 @@ class InvitationStatus(enum.Enum):
     EXPIRED = "expired"
     DECLINED = "declined"
 
+class JobApplicationStatus(enum.Enum):
+    """Статусы откликов на вакансии"""
+    APPLIED = "applied"
+    REVIEWED = "reviewed"
+    INTERVIEW_SCHEDULED = "interview_scheduled"
+    INTERVIEW_COMPLETED = "interview_completed"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+class JobApplication(Base):
+    """Модель отклика на вакансию"""
+    __tablename__ = "job_applications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
+    candidate_id = Column(Integer, ForeignKey("candidate_profiles.id"), nullable=False)
+    
+    # Статус и временные метки
+    status = Column(Enum(JobApplicationStatus), default=JobApplicationStatus.APPLIED)
+    applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    interview_scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    interview_completed_at = Column(DateTime(timezone=True), nullable=True)
+    decision_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Дополнительная информация
+    cover_letter = Column(Text, nullable=True)
+    expected_salary = Column(Integer, nullable=True)
+    availability_date = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    job = relationship("Job", back_populates="job_applications")
+    candidate = relationship("CandidateProfile", back_populates="job_applications")
+    interview_invitations = relationship("InterviewInvitation", back_populates="application")
+
 class InterviewInvitation(Base):
     """Модель приглашения на интервью"""
     __tablename__ = "interview_invitations"
@@ -90,11 +128,13 @@ class InterviewInvitation(Base):
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     candidate_id = Column(Integer, ForeignKey("candidate_profiles.id"), nullable=False)
+    application_id = Column(Integer, ForeignKey("job_applications.id"), nullable=True)
     
     # Статус и временные метки
     status = Column(Enum(InvitationStatus), default=InvitationStatus.SENT)
     invited_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=False)
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)  # Планируемое время интервью
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
@@ -104,11 +144,13 @@ class InterviewInvitation(Base):
     custom_questions = Column(JSON, nullable=True)  # Дополнительные вопросы от компании
     
     # Уникальная ссылка для доступа
-    access_token = Column(String, unique=True, nullable=False, index=True)
+    access_token = Column(String, unique=True, nullable=True, index=True)
     
     # Relationships
     job = relationship("Job", back_populates="interview_invitations")
     candidate = relationship("CandidateProfile", back_populates="interview_invitations")
+    application = relationship("JobApplication", back_populates="interview_invitations")
+    report = relationship("InterviewReport", back_populates="invitation", uselist=False)
     interview_session = relationship("InterviewSession", back_populates="invitation", uselist=False)
 
 

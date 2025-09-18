@@ -93,6 +93,10 @@ class APIService {
     return this.client.put('/users/profile/company', profileData);
   }
 
+  async updateUserProfile(userData: any): Promise<AxiosResponse> {
+    return this.client.put('/users/profile', userData);
+  }
+
   async uploadCV(file: File): Promise<AxiosResponse> {
     const formData = new FormData();
     formData.append('file', file);
@@ -156,6 +160,14 @@ class APIService {
     return this.client.get('/jobs/', { params });
   }
 
+  async getMyJobs(params?: {
+    skip?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/jobs/my', { params });
+  }
+
   async getJob(jobId: string): Promise<AxiosResponse> {
     return this.client.get(`/jobs/${jobId}`);
   }
@@ -168,12 +180,16 @@ class APIService {
     return this.client.put(`/jobs/${jobId}`, jobData);
   }
 
+  async closeJob(jobId: string): Promise<AxiosResponse> {
+    return this.client.patch(`/jobs/${jobId}/status`, { status: 'closed' });
+  }
+
   async deleteJob(jobId: string): Promise<AxiosResponse> {
     return this.client.delete(`/jobs/${jobId}`);
   }
 
   async updateJobStatus(jobId: string, newStatus: string): Promise<AxiosResponse> {
-    return this.client.patch(`/jobs/${jobId}/status?new_status=${newStatus}`);
+    return this.client.patch(`/jobs/${jobId}/status`, { status: newStatus });
   }
 
   // Interview invitation endpoints
@@ -224,6 +240,62 @@ class APIService {
   async applyToCompany(companyId: number): Promise<AxiosResponse> {
     return this.client.post(`/users/companies/${companyId}/apply`);
   }
+
+  // Job application endpoints
+  async applyToJob(jobId: string, applicationData?: {
+    cover_letter?: string;
+    expected_salary?: number;
+    availability_date?: string;
+  }): Promise<AxiosResponse> {
+    return this.client.post(`/jobs/${jobId}/apply`, applicationData || {});
+  }
+
+  async getJobApplications(jobId: string): Promise<AxiosResponse> {
+    return this.client.get(`/jobs/${jobId}/applications`);
+  }
+
+  async updateApplicationStatus(applicationId: string, newStatus: string): Promise<AxiosResponse> {
+    return this.client.patch(`/jobs/applications/${applicationId}/status?new_status=${newStatus}`);
+  }
+
+  async getCandidateApplications(): Promise<AxiosResponse> {
+    return this.client.get('/jobs/candidate/applications');
+  }
+
+  // Методы для работы с приглашениями на интервью
+  async createInterviewInvitation(invitationData: {
+    job_id: number;
+    candidate_id: number;
+    application_id?: number;
+    expires_at: string;
+    scheduled_at?: string;
+    interview_language?: string;
+    custom_questions?: string[];
+  }): Promise<AxiosResponse> {
+    return this.client.post('/jobs/invitations', invitationData);
+  }
+
+  async getCandidateInvitations(): Promise<AxiosResponse> {
+    return this.client.get('/jobs/invitations/candidate');
+  }
+
+  async updateInvitationStatus(invitationId: string, status: string): Promise<AxiosResponse> {
+    return this.client.patch(`/jobs/invitations/${invitationId}/status`, { new_status: status });
+  }
+
+  // Методы для анализа интервью
+  async analyzeInterview(invitationId: number, interviewDuration?: number, questionsAnswered?: number): Promise<AxiosResponse> {
+    return this.client.post('/jobs/interviews/analyze', {
+      invitation_id: invitationId,
+      interview_duration: interviewDuration,
+      questions_answered: questionsAnswered
+    });
+  }
+
+  async getCompanyReports(): Promise<AxiosResponse> {
+    return this.client.get('/jobs/reports/company');
+  }
+
 }
 
 // Создаем единственный экземпляр API сервиса

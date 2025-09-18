@@ -7,7 +7,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Foreign
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
-from ..core.database import Base
+from app.core.database import Base
 
 class UserRole(enum.Enum):
     """Роли пользователей"""
@@ -81,7 +81,9 @@ class CandidateProfile(Base):
     
     # Relationships
     user = relationship("User", back_populates="candidate_profile")
+    job_applications = relationship("JobApplication", back_populates="candidate")
     interview_invitations = relationship("InterviewInvitation", back_populates="candidate")
+    interview_reports = relationship("InterviewReport", back_populates="candidate")
 
 class CompanyProfile(Base):
     """Профиль компании"""

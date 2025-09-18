@@ -5,7 +5,7 @@ Pydantic схемы для пользователей
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
 from datetime import datetime
-from ..models.user import UserRole
+from app.models.user import UserRole
 
 # Base schemas
 class UserBase(BaseModel):

@@ -4340,6 +4340,148 @@
   font-size: 16px !important;
 }
 
+/* Job Candidates Page */
+.job-candidates-container {
+  padding: 24px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%);
+}
+
+/* Interview Invitations Page */
+.interview-invitations-container {
+  padding: 24px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%);
+}
+
+.interview-invitations-header {
+  margin-bottom: 32px;
+}
+
+.interview-invitations-title {
+  margin-top: 16px;
+}
+
+.invitation-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.invitation-details {
+  margin-top: 16px;
+}
+
+.invitation-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.invitation-questions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.invitation-actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+/* Interview Calendar */
+.interview-calendar-container {
+  padding: 24px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%);
+}
+
+.interview-calendar-container .ant-calendar {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.interview-calendar-container .ant-calendar-date {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 2px;
+}
+
+.interview-calendar-container .ant-calendar-date:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.interview-calendar-container .ant-calendar-selected-day .ant-calendar-date {
+  background: #1890ff;
+}
+
+.interview-calendar-container .ant-calendar-today .ant-calendar-date {
+  background: rgba(24, 144, 255, 0.3);
+  border: 1px solid #1890ff;
+}
+
+.job-candidates-header {
+  margin-bottom: 32px;
+}
+
+.job-candidates-title {
+  margin-top: 16px;
+}
+
+.candidate-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.candidate-avatar {
+  flex-shrink: 0;
+}
+
+.candidate-info {
+  flex: 1;
+}
+
+.candidate-details {
+  margin-top: 16px;
+}
+
+.candidate-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.detail-icon {
+  color: rgba(168, 237, 234, 0.8);
+  font-size: 14px;
+}
+
+.candidate-cover-letter {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.candidate-detail-modal {
+  padding: 16px 0;
+}
+
+.candidate-avatar-section {
+  text-align: center;
+}
+
+.candidate-avatar-large {
+  border: 3px solid rgba(168, 237, 234, 0.3);
+}
+
 /* Content Sections */
 .job-content {
   margin-top: 32px;

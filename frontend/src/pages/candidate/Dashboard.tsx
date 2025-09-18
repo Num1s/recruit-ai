@@ -7,10 +7,12 @@ import {
   PlayCircleOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
+  CloseCircleOutlined,
   FileTextOutlined,
   SettingOutlined,
   BuildOutlined,
-  SearchOutlined
+  SearchOutlined,
+  CalendarOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
@@ -21,13 +23,21 @@ import InterviewHistory from '../../components/candidate/InterviewHistory.tsx';
 const { Title, Text, Paragraph } = Typography;
 
 interface InterviewInvitation {
-  id: string;
-  company_name: string;
-  job_title: string;
-  status: 'sent' | 'accepted' | 'in_progress' | 'completed' | 'reviewed';
-  expires_at: string;
+  id: number;
+  job_id: number;
+  candidate_id: number;
+  application_id?: number;
+  status: string;
   invited_at: string;
-  job_description?: string;
+  expires_at: string;
+  scheduled_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  reviewed_at?: string;
+  interview_language: string;
+  custom_questions?: string[];
+  job_title?: string;
+  company_name?: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -44,41 +54,14 @@ const Dashboard: React.FC = () => {
 
   const loadInvitations = async () => {
     try {
-      // Пока используем моковые данные
-      const mockInvitations: InterviewInvitation[] = [
-        {
-          id: '1',
-          company_name: 'TechCorp Кыргызстан',
-          job_title: 'Senior Frontend Developer',
-          status: 'sent',
-          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 часа
-          invited_at: new Date().toISOString(),
-          job_description: 'Разработка современных веб-приложений на React/TypeScript'
-        },
-        {
-          id: '2',
-          company_name: 'FinTech Solutions',
-          job_title: 'Python Backend Developer',
-          status: 'completed',
-          expires_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          invited_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-          job_description: 'Разработка финтех решений на Python/FastAPI'
-        },
-        {
-          id: '3',
-          company_name: 'Digital Bank KG',
-          job_title: 'Full Stack Developer',
-          status: 'reviewed',
-          expires_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-          invited_at: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-          job_description: 'Создание банковских цифровых сервисов'
-        }
-      ];
-      
-      setInvitations(mockInvitations);
-      setLoading(false);
-    } catch (error) {
+      setLoading(true);
+      const response = await authAPI.getCandidateInvitations();
+      setInvitations(response.data);
+    } catch (error: any) {
       console.error('Ошибка загрузки приглашений:', error);
+      // В случае ошибки показываем пустой массив
+      setInvitations([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -86,9 +69,10 @@ const Dashboard: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'sent': return 'blue';
-      case 'accepted': return 'orange';
-      case 'in_progress': return 'orange';
-      case 'completed': return 'green';
+      case 'accepted': return 'green';
+      case 'declined': return 'red';
+      case 'expired': return 'default';
+      case 'completed': return 'success';
       case 'reviewed': return 'purple';
       default: return 'default';
     }
@@ -96,10 +80,11 @@ const Dashboard: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'sent': return 'Приглашение';
+      case 'sent': return 'Ожидает ответа';
       case 'accepted': return 'Принято';
-      case 'in_progress': return 'В процессе';
-      case 'completed': return 'Выполнено';
+      case 'declined': return 'Отклонено';
+      case 'expired': return 'Истекло';
+      case 'completed': return 'Завершено';
       case 'reviewed': return 'Рассмотрено';
       default: return status;
     }
@@ -121,11 +106,56 @@ const Dashboard: React.FC = () => {
     return `Осталось ${minutes}м`;
   };
 
-  const handleStartInterview = (invitationId: string) => {
+  const isInvitationValid = (invitation: InterviewInvitation) => {
+    const now = new Date();
+    const expiry = new Date(invitation.expires_at);
+    return expiry.getTime() > now.getTime() && invitation.status === 'accepted';
+  };
+
+  const canStartInterview = (invitation: InterviewInvitation) => {
+    if (!isInvitationValid(invitation)) return false;
+    
+    // Если есть запланированное время, проверяем, можно ли начать
+    if (invitation.scheduled_at) {
+      const now = new Date();
+      const scheduledTime = new Date(invitation.scheduled_at);
+      const timeDiff = now.getTime() - scheduledTime.getTime();
+      
+      // Можно начать за 30 минут до назначенного времени и в течение 2 часов после
+      return timeDiff >= -30 * 60 * 1000 && timeDiff <= 2 * 60 * 60 * 1000;
+    }
+    
+    // Если нет запланированного времени, можно начать в любое время
+    return true;
+  };
+
+  const handleAcceptInvitation = async (invitationId: number) => {
+    try {
+      await authAPI.updateInvitationStatus(invitationId.toString(), 'accepted');
+      message.success('Приглашение принято!');
+      loadInvitations(); // Перезагружаем список
+    } catch (error: any) {
+      console.error('Ошибка принятия приглашения:', error);
+      message.error('Не удалось принять приглашение');
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: number) => {
+    try {
+      await authAPI.updateInvitationStatus(invitationId.toString(), 'declined');
+      message.success('Приглашение отклонено');
+      loadInvitations(); // Перезагружаем список
+    } catch (error: any) {
+      console.error('Ошибка отклонения приглашения:', error);
+      message.error('Не удалось отклонить приглашение');
+    }
+  };
+
+  const handleStartInterview = (invitationId: number) => {
     navigate(`/candidate/interview/${invitationId}`);
   };
 
-  const handleViewReport = (invitationId: string) => {
+  const handleViewReport = (invitationId: number) => {
     // Пока показываем модалку с информацией
     Modal.info({
       title: 'Отчет по интервью',
@@ -133,6 +163,7 @@ const Dashboard: React.FC = () => {
       okText: 'Понятно'
     });
   };
+
 
   const handleUploadCV = async (file: File) => {
     try {
@@ -204,6 +235,18 @@ const Dashboard: React.FC = () => {
             Вакансии
           </Button>
           <Button 
+            icon={<ClockCircleOutlined />} 
+            onClick={() => navigate('/candidate/invitations')}
+          >
+            Приглашения
+          </Button>
+          <Button 
+            icon={<CalendarOutlined />} 
+            onClick={() => navigate('/candidate/calendar')}
+          >
+            Календарь
+          </Button>
+          <Button 
             icon={<UploadOutlined />} 
             onClick={() => setUploadModalVisible(true)}
           >
@@ -263,6 +306,26 @@ const Dashboard: React.FC = () => {
                             actions={[
                               invitation.status === 'sent' && (
                                 <Button
+                                  key="accept"
+                                  type="primary"
+                                  icon={<CheckCircleOutlined />}
+                                  onClick={() => handleAcceptInvitation(invitation.id)}
+                                >
+                                  Принять
+                                </Button>
+                              ),
+                              invitation.status === 'sent' && (
+                                <Button
+                                  key="decline"
+                                  danger
+                                  icon={<CloseCircleOutlined />}
+                                  onClick={() => handleDeclineInvitation(invitation.id)}
+                                >
+                                  Отклонить
+                                </Button>
+                              ),
+                              canStartInterview(invitation) && (
+                                <Button
                                   key="start"
                                   type="primary"
                                   icon={<PlayCircleOutlined />}
@@ -306,10 +369,16 @@ const Dashboard: React.FC = () => {
                               </div>
                             </div>
 
-                            {invitation.job_description && (
-                              <Paragraph type="secondary" style={{ marginTop: '1rem' }}>
-                                {invitation.job_description}
-                              </Paragraph>
+                            {invitation.scheduled_at && (
+                              <div style={{ marginTop: '1rem', fontSize: '14px', color: '#52c41a' }}>
+                                <CalendarOutlined /> Планируемое время: {new Date(invitation.scheduled_at).toLocaleString('ru-RU')}
+                              </div>
+                            )}
+
+                            {canStartInterview(invitation) && (
+                              <div style={{ marginTop: '1rem', fontSize: '14px', color: '#52c41a', fontWeight: 'bold' }}>
+                                <PlayCircleOutlined /> Интервью доступно для начала
+                              </div>
                             )}
 
                             <div style={{ marginTop: '1rem', fontSize: '14px', color: '#999' }}>

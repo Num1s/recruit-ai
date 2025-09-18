@@ -9,17 +9,17 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 from typing import Any
 
-from ...core.database import get_db
-from ...core.security import verify_password, get_password_hash, create_access_token
-from ...core.config import settings
-from ...core.deps import get_current_active_user
-from ...models.user import User, CandidateProfile, CompanyProfile, UserRole
-from ...schemas.auth import (
+from app.core.database import get_db
+from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.config import settings
+from app.core.deps import get_current_active_user
+from app.models.user import User, CandidateProfile, CompanyProfile, UserRole
+from app.schemas.auth import (
     Token, LoginRequest, RegisterRequest, 
     PasswordResetRequest, ChangePasswordRequest
 )
-from ...schemas.user import User as UserSchema
-from ...core.exceptions import AuthenticationError, ValidationError
+from app.schemas.user import User as UserSchema
+from app.core.exceptions import AuthenticationError, ValidationError
 
 router = APIRouter()
 
@@ -208,6 +208,14 @@ async def refresh_token(
         "token_type": "bearer",
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     }
+
+@router.get("/me", response_model=UserSchema)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """Получение информации о текущем пользователе"""
+    return current_user
+
 
 
 

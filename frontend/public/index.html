@@ -12,6 +12,30 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>Recruit.ai - HR-платформа</title>
+    
+    <!-- Блокировка нежелательных трекинг-запросов -->
+    <script>
+      // Блокируем запросы к autotrack.studyquicks.com
+      if (typeof window !== 'undefined') {
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+          if (typeof url === 'string' && url.includes('autotrack.studyquicks.com')) {
+            console.warn('Блокирован запрос к autotrack.studyquicks.com:', url);
+            return Promise.reject(new Error('Запрос заблокирован'));
+          }
+          return originalFetch.call(this, url, options);
+        };
+        
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url) {
+          if (typeof url === 'string' && url.includes('autotrack.studyquicks.com')) {
+            console.warn('Блокирован XMLHttpRequest к autotrack.studyquicks.com:', url);
+            return;
+          }
+          return originalXHROpen.call(this, method, url);
+        };
+      }
+    </script>
   </head>
   <body>
     <noscript>Вам необходимо включить JavaScript для запуска этого приложения.</noscript>

@@ -9,16 +9,16 @@ import os
 import uuid
 from datetime import datetime
 
-from ...core.database import get_db
-from ...core.deps import get_current_active_user, get_current_candidate, get_current_company
-from ...core.config import settings
-from ...models.user import User, CandidateProfile, CompanyProfile
-from ...schemas.user import (
+from app.core.database import get_db
+from app.core.deps import get_current_active_user, get_current_candidate, get_current_company
+from app.core.config import settings
+from app.models.user import User, CandidateProfile, CompanyProfile, UserRole
+from app.schemas.user import (
     UserUpdate, CandidateProfileUpdate, CompanyProfileUpdate,
     CandidateWithProfile, CompanyWithProfile
 )
 from typing import List, Optional
-from ...core.exceptions import ValidationError, NotFoundError
+from app.core.exceptions import ValidationError, NotFoundError
 
 router = APIRouter()
 
@@ -239,7 +239,7 @@ async def get_candidates(
 ) -> Any:
     """Получение списка кандидатов с фильтрацией"""
     
-    query = db.query(User).outerjoin(CandidateProfile).filter(User.role == "CANDIDATE")
+    query = db.query(User).outerjoin(CandidateProfile).filter(User.role == UserRole.CANDIDATE)
     
     # Поиск по имени или email
     if search:
@@ -249,27 +249,51 @@ async def get_candidates(
             (User.email.ilike(f"%{search}%"))
         )
     
-    # Фильтр по навыкам
+    # Фильтр по навыкам - учитываем None значения
     if skills:
         skills_list = [skill.strip() for skill in skills.split(",")]
         for skill in skills_list:
-            query = query.filter(CandidateProfile.skills.ilike(f"%{skill}%"))
+            # Включаем кандидатов с навыком ИЛИ с пустыми навыками (None)
+            query = query.filter(
+                (CandidateProfile.skills.ilike(f"%{skill}%")) |
+                (CandidateProfile.skills.is_(None))
+            )
     
-    # Фильтр по опыту
+    # Фильтр по опыту - учитываем None значения
     if experience_min is not None:
-        query = query.filter(CandidateProfile.experience_years >= experience_min)
+        # Включаем кандидатов с достаточным опытом ИЛИ с не указанным опытом (None)
+        query = query.filter(
+            (CandidateProfile.experience_years >= experience_min) |
+            (CandidateProfile.experience_years.is_(None))
+        )
     if experience_max is not None:
-        query = query.filter(CandidateProfile.experience_years <= experience_max)
+        # Включаем кандидатов с опытом не больше указанного ИЛИ с не указанным опытом (None)
+        query = query.filter(
+            (CandidateProfile.experience_years <= experience_max) |
+            (CandidateProfile.experience_years.is_(None))
+        )
     
-    # Фильтр по зарплате
+    # Фильтр по зарплате - учитываем None значения
     if salary_min is not None:
-        query = query.filter(CandidateProfile.expected_salary_min >= salary_min)
+        # Включаем кандидатов с достаточной зарплатой ИЛИ с не указанной зарплатой (None)
+        query = query.filter(
+            (CandidateProfile.expected_salary_min >= salary_min) |
+            (CandidateProfile.expected_salary_min.is_(None))
+        )
     if salary_max is not None:
-        query = query.filter(CandidateProfile.expected_salary_max <= salary_max)
+        # Включаем кандидатов с зарплатой не больше указанной ИЛИ с не указанной зарплатой (None)
+        query = query.filter(
+            (CandidateProfile.expected_salary_max <= salary_max) |
+            (CandidateProfile.expected_salary_max.is_(None))
+        )
     
-    # Фильтр по доступности
+    # Фильтр по доступности - учитываем None значения
     if availability:
-        query = query.filter(CandidateProfile.availability == availability)
+        # Включаем кандидатов с указанной доступностью ИЛИ с не указанной доступностью (None)
+        query = query.filter(
+            (CandidateProfile.availability == availability) |
+            (CandidateProfile.availability.is_(None))
+        )
     
     candidates = query.offset(skip).limit(limit).all()
     return candidates
@@ -288,7 +312,7 @@ async def get_companies(
 ) -> Any:
     """Получение списка компаний с фильтрацией"""
     
-    query = db.query(User).outerjoin(CompanyProfile).filter(User.role == "COMPANY")
+    query = db.query(User).outerjoin(CompanyProfile).filter(User.role == UserRole.COMPANY)
     
     # Поиск по названию компании или описанию
     if search:
@@ -331,24 +355,88 @@ async def invite_candidate(
     """Отправка приглашения кандидату от компании"""
     
     # Проверяем, что текущий пользователь - компания
-    if current_user.role != "COMPANY":
+    if current_user.role != UserRole.COMPANY:
         raise ValidationError("Только компании могут отправлять приглашения")
     
     # Находим кандидата
     candidate = db.query(User).filter(
         User.id == candidate_id,
-        User.role == "CANDIDATE"
+        User.role == UserRole.CANDIDATE
     ).first()
     
     if not candidate:
         raise NotFoundError("Кандидат не найден")
     
-    # Здесь можно добавить логику создания приглашения
-    # Пока возвращаем успешный ответ
+    # Проверяем, что у кандидата есть профиль
+    if not candidate.candidate_profile:
+        raise ValidationError("У кандидата нет профиля")
+    
+    # Проверяем, что у компании есть профиль
+    if not current_user.company_profile:
+        raise ValidationError("У компании нет профиля")
+    
+    # Находим первую доступную вакансию компании или создаем общее приглашение
+    from app.models.job import Job, InterviewInvitation, InvitationStatus
+    from datetime import datetime, timedelta
+    
+    # Ищем первую активную вакансию компании
+    job = db.query(Job).filter(
+        Job.company_id == current_user.company_profile.id,
+        Job.status == "active"
+    ).first()
+    
+    # Если нет активных вакансий, создаем общее приглашение без привязки к вакансии
+    if not job:
+        # Создаем временную вакансию для общего приглашения
+        from app.models.job import JobStatus, JobType, ExperienceLevel
+        job = Job(
+            company_id=current_user.company_profile.id,
+            title="Общее приглашение",
+            description="Общее приглашение на интервью",
+            requirements="Общие требования",
+            responsibilities="Общие обязанности",
+            job_type=JobType.FULL_TIME,
+            experience_level=ExperienceLevel.MIDDLE,  # Устанавливаем средний уровень опыта
+            status=JobStatus.ACTIVE,
+            is_ai_interview_enabled=True,
+            max_candidates=100,
+            created_at=datetime.now()
+        )
+        db.add(job)
+        db.commit()
+        db.refresh(job)
+    
+    # Проверяем, не было ли уже отправлено приглашение этому кандидату от этой компании
+    existing_invitation = db.query(InterviewInvitation).filter(
+        InterviewInvitation.candidate_id == candidate.candidate_profile.id,
+        InterviewInvitation.job_id == job.id
+    ).first()
+    
+    if existing_invitation:
+        return {
+            "message": f"Приглашение уже было отправлено кандидату {candidate.first_name} {candidate.last_name}",
+            "candidate_id": candidate_id,
+            "invitation_id": existing_invitation.id
+        }
+    
+    # Создаем приглашение
+    invitation = InterviewInvitation(
+        job_id=job.id,
+        candidate_id=candidate.candidate_profile.id,
+        status=InvitationStatus.SENT,
+        expires_at=datetime.now() + timedelta(days=7),  # Приглашение действует 7 дней
+        interview_language="ru"
+    )
+    
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
     
     return {
         "message": f"Приглашение отправлено кандидату {candidate.first_name} {candidate.last_name}",
-        "candidate_id": candidate_id
+        "candidate_id": candidate_id,
+        "invitation_id": invitation.id,
+        "job_title": job.title
     }
 
 @router.post("/companies/{company_id}/apply")
@@ -360,13 +448,13 @@ async def apply_to_company(
     """Подача заявки в компанию от кандидата"""
     
     # Проверяем, что текущий пользователь - кандидат
-    if current_user.role != "CANDIDATE":
+    if current_user.role != UserRole.CANDIDATE:
         raise ValidationError("Только кандидаты могут подавать заявки")
     
     # Находим компанию
     company = db.query(User).filter(
         User.id == company_id,
-        User.role == "COMPANY"
+        User.role == UserRole.COMPANY
     ).first()
     
     if not company:

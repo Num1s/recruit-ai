@@ -4,7 +4,7 @@ Pydantic схемы для аутентификации
 
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from ..models.user import UserRole
+from app.models.user import UserRole
 
 class Token(BaseModel):
     """Схема токена доступа"""
@@ -48,6 +48,7 @@ class ChangePasswordRequest(BaseModel):
     """Запрос на смену пароля"""
     current_password: str
     new_password: str
+
 
 
 

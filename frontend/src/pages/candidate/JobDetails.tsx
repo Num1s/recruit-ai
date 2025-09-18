@@ -98,8 +98,9 @@ const JobDetails: React.FC = () => {
   const handleApplyToJob = async () => {
     try {
       setApplying(true);
-      // Здесь будет логика подачи заявки на вакансию
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Имитация API вызова
+      
+      // Отправляем отклик на вакансию
+      await authAPI.applyToJob(jobId!);
       
       showSuccess({
         title: 'Заявка подана',
@@ -107,9 +108,15 @@ const JobDetails: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Ошибка подачи заявки:', error);
+      
+      let errorMessage = 'Не удалось подать заявку на вакансию';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      
       showError({
         title: 'Ошибка',
-        message: 'Не удалось подать заявку на вакансию'
+        message: errorMessage
       });
     } finally {
       setApplying(false);

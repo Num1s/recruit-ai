@@ -108,7 +108,7 @@ const JobListings: React.FC = () => {
 
       const response = await authAPI.getJobs(params);
       setJobs(response.data);
-      setTotalJobs(response.data.length); // В реальном API здесь будет общее количество
+      setTotalJobs(response.data.length); // TODO: API должен возвращать общее количество в заголовке
       
     } catch (error: any) {
       console.error('Ошибка загрузки вакансий:', error);
@@ -143,16 +143,24 @@ const JobListings: React.FC = () => {
 
   const handleApplyToJob = async (jobId: number) => {
     try {
-      // Здесь будет логика подачи заявки на вакансию
+      // Отправляем отклик на вакансию
+      await authAPI.applyToJob(jobId.toString());
+      
       showSuccess({
         title: 'Заявка подана',
         message: 'Ваша заявка на вакансию успешно отправлена'
       });
     } catch (error: any) {
       console.error('Ошибка подачи заявки:', error);
+      
+      let errorMessage = 'Не удалось подать заявку на вакансию';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      }
+      
       showError({
         title: 'Ошибка',
-        message: 'Не удалось подать заявку на вакансию'
+        message: errorMessage
       });
     }
   };

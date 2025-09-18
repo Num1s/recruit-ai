@@ -24,12 +24,15 @@ import {
   FolderOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
-  SearchOutlined
+  SearchOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import { authAPI } from '../../services/api.ts';
 import InviteCandidate from '../../components/company/InviteCandidate.tsx';
 import AIInsights from '../../components/company/AIInsights.tsx';
+import InterviewReports from './InterviewReports.tsx';
 import CreateJobModal from '../../components/company/CreateJobModal.tsx';
 
 const { Title, Text } = Typography;
@@ -63,6 +66,7 @@ const CompanyDashboard: React.FC = () => {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [createJobModalVisible, setCreateJobModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState<{ id: string; title: string } | null>(null);
+  const [editingJob, setEditingJob] = useState<any>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -70,75 +74,68 @@ const CompanyDashboard: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Моковые данные для кандидатов
-      const mockCandidates: Candidate[] = [
-        {
-          id: '1',
-          name: 'Алексей Петров',
-          position: 'Senior Frontend Developer',
-          status: 'report_ready',
-          interview_date: '2025-01-15',
-          score: 4.2,
-          email: 'alexey@example.com'
-        },
-        {
-          id: '2',
-          name: 'Мария Сидорова',
-          position: 'Python Backend Developer',
-          status: 'completed',
-          interview_date: '2025-01-14',
-          score: 3.8,
-          email: 'maria@example.com'
-        },
-        {
-          id: '3',
-          name: 'Дмитрий Иванов',
-          position: 'Full Stack Developer',
-          status: 'in_progress',
-          interview_date: '2025-01-16',
-          email: 'dmitry@example.com'
-        },
-        {
-          id: '4',
-          name: 'Анна Козлова',
-          position: 'Senior Frontend Developer',
-          status: 'scheduled',
-          interview_date: '2025-01-17',
-          email: 'anna@example.com'
-        }
-      ];
+      setLoading(true);
+      
+      // Загружаем реальные данные кандидатов
+      const candidatesResponse = await authAPI.getCompanyCandidates();
+      const candidatesData = candidatesResponse.data;
+      
+      // Преобразуем данные в формат, ожидаемый компонентом
+      const formattedCandidates: Candidate[] = candidatesData.map((candidate: any) => ({
+        id: candidate.id.toString(),
+        name: candidate.candidate_name,
+        position: candidate.job_title,
+        status: mapApplicationStatusToInterviewStatus(candidate.status),
+        interview_date: candidate.applied_at.split('T')[0], // Берем только дату
+        score: candidate.candidate_experience_years ? Math.min(5, candidate.candidate_experience_years / 2) : undefined,
+        email: candidate.candidate_email,
+        avatar: candidate.candidate_avatar
+      }));
 
-      // Моковые данные для вакансий
-      const mockVacancies: JobVacancy[] = [
-        {
-          id: '1',
-          title: 'Senior Frontend Developer',
-          candidates_count: 12,
-          status: 'active',
-          created_date: '2025-01-10'
-        },
-        {
-          id: '2',
-          title: 'Python Backend Developer',
-          candidates_count: 8,
-          status: 'active',
-          created_date: '2025-01-08'
-        },
-        {
-          id: '3',
-          title: 'Full Stack Developer',
-          candidates_count: 15,
-          status: 'active',
-          created_date: '2025-01-12'
-        }
-      ];
+      // Загружаем реальные вакансии компании
+      const jobsResponse = await authAPI.getMyJobs({ 
+        limit: 100 // Загружаем все вакансии компании
+      });
+      const jobsData = jobsResponse.data;
+      
+      // Преобразуем данные вакансий в формат, ожидаемый компонентом
+      const formattedVacancies: JobVacancy[] = jobsData.map((job: any) => ({
+        id: job.id.toString(),
+        title: job.title,
+        candidates_count: candidatesData.filter((c: any) => c.job_id === job.id).length,
+        status: job.status === 'active' ? 'active' : job.status === 'paused' ? 'paused' : 'closed',
+        created_date: job.created_at
+      }));
 
-      setCandidates(mockCandidates);
-      setVacancies(mockVacancies);
-      setLoading(false);
+      setCandidates(formattedCandidates);
+      setVacancies(formattedVacancies);
     } catch (error) {
       console.error('Ошибка загрузки данных:', error);
+      // В случае ошибки показываем пустые данные
+      setCandidates([]);
+      setVacancies([]);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  // Функция для преобразования статуса отклика в статус интервью
+  const mapApplicationStatusToInterviewStatus = (status: string): 'scheduled' | 'in_progress' | 'completed' | 'report_ready' => {
+    switch (status) {
+      case 'applied':
+        return 'scheduled';
+      case 'reviewed':
+        return 'scheduled';
+      case 'interview_scheduled':
+        return 'scheduled';
+      case 'interview_completed':
+        return 'completed';
+      case 'accepted':
+        return 'completed'; // Изменено с 'report_ready' на 'completed'
+      case 'rejected':
+        return 'completed';
+      default:
+        return 'scheduled';
     }
   };
 
@@ -163,7 +160,50 @@ const CompanyDashboard: React.FC = () => {
   };
 
   const handleViewReport = (candidateId: string) => {
-    navigate(`/company/candidate/${candidateId}/report`);
+    // Переключаемся на таб "Отчеты"
+    setActiveTab('reports');
+  };
+
+  const handleViewJobCandidates = (jobId: string) => {
+    navigate(`/company/jobs/${jobId}/candidates`);
+  };
+
+  const handleEditJob = async (jobId: string) => {
+    try {
+      // Загружаем полные данные вакансии
+      const response = await authAPI.getJob(jobId);
+      const jobData = response.data;
+      
+      // Устанавливаем данные для редактирования
+      setEditingJob(jobData);
+      
+      // Открываем модальное окно редактирования
+      setCreateJobModalVisible(true);
+    } catch (error: any) {
+      showError({
+        title: 'Ошибка',
+        message: error.response?.data?.detail || 'Не удалось загрузить данные вакансии'
+      });
+    }
+  };
+
+  const handleCloseJob = async (jobId: string) => {
+    try {
+      await authAPI.closeJob(jobId);
+      
+      showSuccess({
+        title: 'Вакансия закрыта',
+        message: 'Вакансия успешно закрыта'
+      });
+      
+      // Перезагружаем данные
+      loadDashboardData();
+    } catch (error: any) {
+      showError({
+        title: 'Ошибка',
+        message: error.response?.data?.detail || 'Не удалось закрыть вакансию'
+      });
+    }
   };
 
   const handleInviteCandidate = (jobId?: string, jobTitle?: string) => {
@@ -178,6 +218,9 @@ const CompanyDashboard: React.FC = () => {
         break;
       case 'jobs':
         navigate('/company/jobs');
+        break;
+      case 'reports':
+        navigate('/company/reports');
         break;
       case 'settings':
         navigate('/company/settings');
@@ -248,19 +291,9 @@ const CompanyDashboard: React.FC = () => {
       key: 'actions',
       render: (record: Candidate) => (
         <Space>
-          {record.status === 'report_ready' && (
+          {(record.status === 'completed' || record.status === 'report_ready') && (
             <Button 
               type="primary" 
-              size="small" 
-              icon={<EyeOutlined />}
-              onClick={() => handleViewReport(record.id)}
-            >
-              Отчет
-            </Button>
-          )}
-          {record.status === 'completed' && (
-            <Button 
-              type="default" 
               size="small" 
               icon={<EyeOutlined />}
               onClick={() => handleViewReport(record.id)}
@@ -305,8 +338,27 @@ const CompanyDashboard: React.FC = () => {
       key: 'actions',
       render: (record: JobVacancy) => (
         <Space>
-          <Button size="small">Редактировать</Button>
-          <Button size="small" danger>Закрыть</Button>
+          <Button
+            type="primary"
+            size="small"
+            icon={<TeamOutlined />}
+            onClick={() => handleViewJobCandidates(record.id)}
+          >
+            Кандидаты
+          </Button>
+          <Button 
+            size="small"
+            onClick={() => handleEditJob(record.id)}
+          >
+            Редактировать
+          </Button>
+          <Button 
+            size="small" 
+            danger
+            onClick={() => handleCloseJob(record.id)}
+          >
+            Закрыть
+          </Button>
         </Space>
       ),
     },
@@ -322,6 +374,11 @@ const CompanyDashboard: React.FC = () => {
       key: 'jobs',
       icon: <FolderOutlined />,
       label: 'Управление вакансиями',
+    },
+    {
+      key: 'reports',
+      icon: <FileTextOutlined />,
+      label: 'Отчеты по интервью',
     },
     {
       key: 'settings',
@@ -350,7 +407,7 @@ const CompanyDashboard: React.FC = () => {
             Recruit.ai
           </Title>
         </div>
-        <Space>
+        <Space wrap>
           <Button 
             type="default" 
             icon={<SearchOutlined />}
@@ -394,6 +451,7 @@ const CompanyDashboard: React.FC = () => {
           </Title>
           
           {/* Статистика */}
+          <Title level={3} style={{ marginBottom: '1rem' }}>Статистика</Title>
           <Row gutter={16} style={{ marginBottom: '2rem' }}>
             <Col span={6}>
               <Card>
@@ -469,7 +527,11 @@ const CompanyDashboard: React.FC = () => {
                 children: (
                   <div>
                     <div style={{ marginBottom: 16 }}>
-                      <Button type="primary" icon={<PlusOutlined />}>
+                      <Button 
+                        type="primary" 
+                        icon={<PlusOutlined />}
+                        onClick={() => setCreateJobModalVisible(true)}
+                      >
                         Создать новую вакансию
                       </Button>
                     </div>
@@ -493,6 +555,11 @@ const CompanyDashboard: React.FC = () => {
                 key: 'ai-insights',
                 label: 'AI Insights',
                 children: <AIInsights companyId={user?.id.toString()} />
+              },
+              {
+                key: 'reports',
+                label: 'Отчеты',
+                children: <InterviewReports />
               }
             ]}
           />
@@ -508,11 +575,16 @@ const CompanyDashboard: React.FC = () => {
 
       <CreateJobModal
         visible={createJobModalVisible}
-        onClose={() => setCreateJobModalVisible(false)}
-        onSuccess={() => {
-          // Перезагружаем данные после создания вакансии
-          loadDashboardData();
+        onClose={() => {
+          setCreateJobModalVisible(false);
+          setEditingJob(null);
         }}
+        onSuccess={() => {
+          // Перезагружаем данные после создания/редактирования вакансии
+          loadDashboardData();
+          setEditingJob(null);
+        }}
+        jobData={editingJob}
       />
     </div>
   );

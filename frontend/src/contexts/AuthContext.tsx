@@ -2,19 +2,44 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { message } from 'antd';
 import { authAPI } from '../services/api.ts';
 
-interface User {
+export interface CandidateProfile {
+  id: number;
+  user_id: number;
+  summary?: string;
+  experience_years?: number;
+  current_position?: string;
+  current_company?: string;
+  location?: string;
+  skills?: string[];
+  preferred_salary_min?: number;
+  preferred_salary_max?: number;
+  preferred_locations?: string[];
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
+  education?: string;
+  languages?: string[];
+  achievements?: string;
+  cv_filename?: string;
+  cv_url?: string;
+  cv_uploaded_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface User {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
   role: 'candidate' | 'company' | 'admin';
+  phone?: string;
+  avatar_url?: string;
   company_profile?: {
     id: number;
     company_name: string;
   };
-  candidate_profile?: {
-    id: number;
-  };
+  candidate_profile?: CandidateProfile;
 }
 
 interface AuthContextType {
@@ -24,6 +49,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => void;
+  setUser: (user: User | null) => void;
   isAuthenticated: boolean;
 }
 
@@ -62,13 +88,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const savedUser = localStorage.getItem('user');
 
     if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
-      // Устанавливаем токен в API сервис
+      // Проверяем валидность токена
       authAPI.setAuthToken(savedToken);
+      
+      // Проверяем токен через API
+      authAPI.getCurrentUser()
+        .then(response => {
+          setToken(savedToken);
+          setUser(response.data);
+        })
+        .catch(error => {
+          // Токен недействителен, очищаем данные
+          console.log('Токен недействителен, очищаем данные авторизации');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('user');
+          authAPI.setAuthToken(null);
+          setToken(null);
+          setUser(null);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
@@ -138,6 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
+    setUser,
     isAuthenticated: !!user && !!token,
   };
 

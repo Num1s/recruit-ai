@@ -11,6 +11,8 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
+import { authAPI } from '../../services/api.ts';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -26,6 +28,7 @@ interface InterviewQuestion {
 const InterviewProcess: React.FC = () => {
   const { invitationId } = useParams<{ invitationId: string }>();
   const navigate = useNavigate();
+  const { user, token } = useAuth();
   
   const [currentStep, setCurrentStep] = useState<InterviewStep>('upload-cv');
   const [progress, setProgress] = useState(0);
@@ -35,10 +38,32 @@ const InterviewProcess: React.FC = () => {
   const [interviewStarted, setInterviewStarted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(600); // 10 минут
   const [devicePermissions, setDevicePermissions] = useState({ camera: false, microphone: false });
+  const [isQuickStart, setIsQuickStart] = useState(false);
+
+  // Проверяем авторизацию при загрузке
+  useEffect(() => {
+    if (!user || !token) {
+      message.error('Необходимо войти в систему');
+      navigate('/login');
+      return;
+    }
+    
+    // Устанавливаем токен в API сервис
+    authAPI.setAuthToken(token);
+  }, [user, token, navigate]);
   
   const webcamRef = useRef<Webcam>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunks = useRef<Blob[]>([]);
+
+  // Определяем, является ли это быстрым стартом
+  useEffect(() => {
+    if (invitationId === 'quick-start') {
+      setIsQuickStart(true);
+      // Для быстрого старта пропускаем загрузку CV и сразу переходим к проверке оборудования
+      setCurrentStep('equipment-check');
+    }
+  }, [invitationId]);
 
   const mockQuestions: InterviewQuestion[] = [
     {
@@ -186,6 +211,62 @@ const InterviewProcess: React.FC = () => {
     handleStepComplete();
   };
 
+  const handleTestComplete = async () => {
+    // Проверяем авторизацию
+    if (!user || !token) {
+      message.error('Необходимо войти в систему');
+      navigate('/login');
+      return;
+    }
+
+    // Тестовое завершение интервью с отправкой на анализ
+    setIsRecording(false);
+    setInterviewStarted(false);
+    
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Отправляем интервью на анализ
+    try {
+      if (invitationId && invitationId !== 'quick-start') {
+        const interviewDuration = 600 - timeRemaining; // Время, потраченное на интервью
+        const questionsAnswered = currentQuestion + 1;
+        
+        // Убеждаемся, что токен установлен
+        authAPI.setAuthToken(token);
+        
+        console.log('Отправка интервью на анализ:', {
+          invitationId: parseInt(invitationId),
+          interviewDuration,
+          questionsAnswered,
+          user: user?.id,
+          hasCandidateProfile: !!user?.candidate_profile
+        });
+        
+        await authAPI.analyzeInterview(
+          parseInt(invitationId),
+          interviewDuration,
+          questionsAnswered
+        );
+        
+        message.success('Интервью отправлено на анализ ИИ!');
+      } else {
+        message.info('Тестовое интервью завершено');
+      }
+      
+      handleStepComplete();
+    } catch (error: any) {
+      console.error('Ошибка при отправке на анализ:', error);
+      if (error.response?.status === 401) {
+        message.error('Сессия истекла. Пожалуйста, войдите в систему заново');
+        navigate('/login');
+      } else {
+        message.error('Ошибка при отправке интервью на анализ');
+      }
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -315,6 +396,14 @@ const InterviewProcess: React.FC = () => {
               </Space>
               <Space>
                 {isRecording && <Text type="danger" className="interview-recording-indicator">● Запись</Text>}
+                <Button 
+                  type="primary"
+                  onClick={handleTestComplete}
+                  icon={<CheckCircleOutlined />}
+                  className="interview-test-button"
+                >
+                  Тест
+                </Button>
                 <Button 
                   danger 
                   onClick={handleCompleteInterview}

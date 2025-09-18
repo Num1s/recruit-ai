@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from .database import get_db
 from .security import verify_token
-from ..models.user import User, UserRole
-from ..core.exceptions import AuthenticationError, AuthorizationError
+from app.models.user import User, UserRole
+from app.core.exceptions import AuthenticationError, AuthorizationError
 
 # HTTP Bearer для получения токена из заголовков
 security = HTTPBearer()
@@ -70,6 +70,7 @@ def get_optional_current_user(
         return get_current_user(credentials, db)
     except:
         return None
+
 
 
 

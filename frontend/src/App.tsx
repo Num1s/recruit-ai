@@ -15,7 +15,7 @@ import HomePage from './pages/HomePage.tsx';
 import LoginPage from './pages/auth/LoginPage.tsx';
 import RegisterPage from './pages/auth/RegisterPage.tsx';
 import CandidateDashboard from './pages/candidate/Dashboard.tsx';
-import CandidateProfile from './pages/candidate/CandidateProfile.tsx';
+import CandidateProfilePage from './pages/candidate/CandidateProfile.tsx';
 import CandidateSettings from './pages/candidate/CandidateSettings.tsx';
 import MatchingCompanies from './pages/candidate/MatchingCompanies.tsx';
 import JobListings from './pages/candidate/JobListings.tsx';
@@ -27,6 +27,10 @@ import CompanyProfile from './pages/company/CompanyProfile.tsx';
 import CompanySettings from './pages/company/CompanySettings.tsx';
 import MatchingCandidates from './pages/company/MatchingCandidates.tsx';
 import JobManagement from './pages/company/JobManagement.tsx';
+import JobCandidates from './pages/company/JobCandidates.tsx';
+import InterviewReports from './pages/company/InterviewReports.tsx';
+import InterviewInvitations from './pages/candidate/InterviewInvitations.tsx';
+import InterviewCalendarPage from './pages/candidate/InterviewCalendarPage.tsx';
 
 const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
@@ -55,11 +59,13 @@ const AppRoutes: React.FC = () => {
                   <ProtectedRoute requiredRole="candidate">
                     <Routes>
                       <Route path="dashboard" element={<CandidateDashboard />} />
-                      <Route path="profile" element={<CandidateProfile />} />
+                      <Route path="profile" element={<CandidateProfilePage />} />
                       <Route path="settings" element={<CandidateSettings />} />
                       <Route path="companies" element={<MatchingCompanies />} />
                       <Route path="jobs" element={<JobListings />} />
                       <Route path="jobs/:jobId" element={<JobDetails />} />
+                      <Route path="invitations" element={<InterviewInvitations />} />
+                      <Route path="calendar" element={<InterviewCalendarPage />} />
                       <Route path="interview/:invitationId" element={<InterviewProcess />} />
                       <Route path="*" element={<Navigate to="/candidate/dashboard" replace />} />
                     </Routes>
@@ -77,6 +83,8 @@ const AppRoutes: React.FC = () => {
                       <Route path="candidates" element={<MatchingCandidates />} />
                       <Route path="candidate/:candidateId/report" element={<CandidateReport />} />
                       <Route path="jobs" element={<JobManagement />} />
+                      <Route path="jobs/:jobId/candidates" element={<JobCandidates />} />
+                      <Route path="reports" element={<InterviewReports />} />
                       <Route path="profile" element={<CompanyProfile />} />
                       <Route path="settings" element={<CompanySettings />} />
                       <Route path="*" element={<Navigate to="/company/dashboard" replace />} />
