@@ -11,7 +11,25 @@ const HomePage: React.FC = () => {
   React.useEffect(() => {
     // Если пользователь уже авторизован, редиректим на соответствующий dashboard
     if (user) {
-      const redirectPath = user.role === 'candidate' ? '/candidate/dashboard' : '/company/dashboard';
+      let redirectPath = '/';
+      
+      switch (user.role) {
+        case 'candidate':
+          redirectPath = '/candidate/dashboard';
+          break;
+        case 'company':
+          redirectPath = '/company/dashboard';
+          break;
+        case 'recruiter':
+        case 'senior_recruiter':
+        case 'recruit_lead':
+        case 'admin':
+          redirectPath = '/recruiter/dashboard';
+          break;
+        default:
+          redirectPath = '/';
+      }
+      
       navigate(redirectPath, { replace: true });
     }
   }, [user, navigate]);

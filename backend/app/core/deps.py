@@ -52,10 +52,46 @@ def get_current_company(current_user: User = Depends(get_current_active_user)) -
         raise AuthorizationError("Доступ только для компаний")
     return current_user
 
+def get_current_company_owner(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение владельца компании (может управлять командой)"""
+    if current_user.role not in [UserRole.COMPANY, UserRole.ADMIN]:
+        raise AuthorizationError("Доступ только для владельцев компаний и администраторов")
+    return current_user
+
 def get_current_admin(current_user: User = Depends(get_current_active_user)) -> User:
     """Получение текущего администратора"""
     if current_user.role != UserRole.ADMIN:
         raise AuthorizationError("Доступ только для администраторов")
+    return current_user
+
+def get_current_recruit_lead(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение текущего главного рекрутера"""
+    if current_user.role != UserRole.RECRUIT_LEAD:
+        raise AuthorizationError("Доступ только для главных рекрутеров")
+    return current_user
+
+def get_current_senior_recruiter(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение текущего старшего рекрутера"""
+    if current_user.role != UserRole.SENIOR_RECRUITER:
+        raise AuthorizationError("Доступ только для старших рекрутеров")
+    return current_user
+
+def get_current_recruiter(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение текущего рекрутера"""
+    if current_user.role != UserRole.RECRUITER:
+        raise AuthorizationError("Доступ только для рекрутеров")
+    return current_user
+
+def get_current_recruiter_or_above(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение текущего рекрутера или выше"""
+    if current_user.role not in [UserRole.RECRUITER, UserRole.SENIOR_RECRUITER, UserRole.RECRUIT_LEAD]:
+        raise AuthorizationError("Доступ только для рекрутеров и выше")
+    return current_user
+
+def get_current_senior_or_lead(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение текущего старшего рекрутера или главного рекрутера"""
+    if current_user.role not in [UserRole.SENIOR_RECRUITER, UserRole.RECRUIT_LEAD]:
+        raise AuthorizationError("Доступ только для старших рекрутеров и главных рекрутеров")
     return current_user
 
 def get_optional_current_user(

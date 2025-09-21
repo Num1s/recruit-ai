@@ -45,3 +45,5 @@ class InterviewReport(Base):
     invitation = relationship("InterviewInvitation", back_populates="report")
     candidate = relationship("CandidateProfile", back_populates="interview_reports")
     job = relationship("Job", back_populates="interview_reports")
+
+

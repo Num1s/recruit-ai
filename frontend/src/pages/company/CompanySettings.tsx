@@ -22,7 +22,11 @@ import {
   Badge,
   Tooltip,
   Slider,
-  Progress
+  Progress,
+  Table,
+  Popconfirm,
+  Statistic,
+  message
 } from 'antd';
 import {
   SettingOutlined,
@@ -38,15 +42,505 @@ import {
   ExclamationCircleOutlined,
   CheckCircleOutlined,
   SaveOutlined,
-  ArrowLeftOutlined
+  ArrowLeftOutlined,
+  CrownOutlined,
+  UserAddOutlined
 } from '@ant-design/icons';
 import { useNotification } from '../../contexts/NotificationContext.tsx';
 import { useNavigate } from 'react-router-dom';
+import { authAPI } from '../../services/api.ts';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 const { confirm } = Modal;
+
+interface TeamMember {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+
+// Компонент управления командой
+const TeamManagementComponent: React.FC = () => {
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [streams, setStreams] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isCreateStreamModalVisible, setIsCreateStreamModalVisible] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [form] = Form.useForm();
+  const [streamForm] = Form.useForm();
+
+  // Загружаем участников команды и потоки при монтировании компонента
+  useEffect(() => {
+    loadTeamMembers();
+    loadStreams();
+  }, []);
+
+  const loadTeamMembers = async () => {
+    try {
+      setLoading(true);
+      
+      // Отладочная информация
+      const token = localStorage.getItem('access_token');
+      console.log('Token exists:', !!token);
+      console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+      
+      const response = await authAPI.getRecruiters();
+      console.log('API Response:', response);
+      console.log('API Response data:', response.data);
+      
+      const teamMembers = response.data.map((user: any) => ({
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email,
+        role: user.role,
+        created_at: new Date(user.created_at).toLocaleDateString('ru-RU')
+      }));
+      setMembers(teamMembers);
+    } catch (error: any) {
+      console.error('Error loading team members:', error);
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      
+      // Если ошибка авторизации, показываем моковые данные
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        const mockMembers: TeamMember[] = [
+          {
+            id: 1,
+            name: 'Анна Петрова',
+            email: 'anna@techcorp.com',
+            role: 'HR Manager',
+            created_at: '15.01.2024'
+          },
+          {
+            id: 2,
+            name: 'Михаил Сидоров',
+            email: 'mikhail@techcorp.com',
+            role: 'Tech Lead',
+            created_at: '14.01.2024'
+          }
+        ];
+        setMembers(mockMembers);
+        message.warning('Используются демо-данные. Войдите в систему для полной функциональности.');
+      } else {
+        message.error('Ошибка при загрузке участников команды');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStreams = async () => {
+    try {
+      console.log('Loading streams...');
+      const response = await authAPI.getStreams();
+      console.log('Streams Response:', response);
+      console.log('Streams data:', response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        setStreams(response.data);
+        console.log('Streams loaded successfully:', response.data);
+      } else {
+        console.warn('Streams response is not an array:', response.data);
+        setStreams([]);
+      }
+    } catch (error: any) {
+      console.error('Error loading streams:', error);
+      console.error('Error response:', error.response);
+      
+      // Если ошибка, используем потоки из базы данных
+      const mockStreams = [
+        { id: 1, name: 'чап' },
+        { id: 2, name: 'gurenidus' }
+      ];
+      setStreams(mockStreams);
+      console.log('Using mock streams:', mockStreams);
+    }
+  };
+
+  const handleCreateStream = async (values: any) => {
+    try {
+      console.log('Creating stream:', values);
+      
+      const response = await authAPI.createStream({
+        name: values.name
+      });
+
+      // Перезагружаем список потоков
+      await loadStreams();
+      
+      setIsCreateStreamModalVisible(false);
+      streamForm.resetFields();
+      message.success('Поток успешно создан!');
+    } catch (error: any) {
+      console.error('Error creating stream:', error);
+      message.error(error.response?.data?.detail || 'Ошибка при создании потока');
+    }
+  };
+
+  const handleCreateMember = async (values: any) => {
+    try {
+      console.log('Creating user with values:', values);
+      
+      // Для руководителей (RECRUIT_LEAD, SENIOR_RECRUITER) не передаем stream_id
+      const userData: any = {
+        first_name: values.first_name,
+        last_name: values.last_name,
+        email: values.email,
+        password: values.password,
+        role: values.role
+      };
+      
+      // Добавляем stream_id только для обычных рекрутеров
+      if ((values.role === 'recruiter' || values.role === 'RECRUITER') && values.stream_id) {
+        userData.stream_id = values.stream_id;
+        console.log('Added stream_id:', values.stream_id);
+      } else if (values.role === 'recruiter' || values.role === 'RECRUITER') {
+        console.log('Warning: recruiter role selected but no stream_id provided');
+      }
+      
+      console.log('Final userData:', userData);
+      const response = await authAPI.createUser(userData);
+
+      // Перезагружаем список участников
+      await loadTeamMembers();
+      
+      setIsCreateModalVisible(false);
+      form.resetFields();
+      setSelectedRole('');
+      message.success('Участник команды успешно добавлен! Теперь он может войти в систему используя указанные email и пароль.');
+    } catch (error: any) {
+      console.error('Error creating team member:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        message.error('Необходимо войти в систему для создания пользователей');
+      } else {
+        message.error(error.response?.data?.detail || 'Ошибка при создании участника команды');
+      }
+    }
+  };
+
+  const handleDeleteMember = async (id: number) => {
+    try {
+      await authAPI.deleteTeamMember(id);
+      // Перезагружаем список участников
+      await loadTeamMembers();
+      message.success('Участник команды удален');
+    } catch (error: any) {
+      console.error('Error deleting team member:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        message.error('Необходимо войти в систему для удаления пользователей');
+      } else {
+        message.error(error.response?.data?.detail || 'Ошибка при удалении участника');
+      }
+    }
+  };
+
+  const memberColumns = [
+    {
+      title: 'Участник',
+      key: 'member',
+      render: (record: TeamMember) => (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{record.name}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>{record.email}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Роль',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role: string) => <Tag color="blue">{role}</Tag>,
+    },
+    {
+      title: 'Добавлен',
+      dataIndex: 'created_at',
+      key: 'created_at',
+    },
+    {
+      title: 'Действия',
+      key: 'actions',
+      render: (record: TeamMember) => (
+        <Space>
+          <Popconfirm
+            title="Вы уверены, что хотите удалить этого участника?"
+            onConfirm={() => handleDeleteMember(record.id)}
+            okText="Да"
+            cancelText="Нет"
+          >
+            <Button
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+            >
+              Удалить
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Всего участников"
+              value={members.length}
+              prefix={<TeamOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Активных ролей"
+              value={3}
+              prefix={<CrownOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Потоков"
+              value={streams.length}
+              prefix={<TeamOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card
+        title="Участники команды"
+        extra={
+          <Space>
+            <Button
+              onClick={loadStreams}
+              title="Перезагрузить потоки"
+            >
+              🔄 Потоки ({streams.length})
+            </Button>
+            <Button
+              onClick={() => {
+                console.log('Form values:', form.getFieldsValue());
+                console.log('Form errors:', form.getFieldsError());
+              }}
+              title="Проверить форму"
+            >
+              🔍 Форма
+            </Button>
+            <Button
+              onClick={() => setIsCreateStreamModalVisible(true)}
+              icon={<PlusOutlined />}
+            >
+              Создать поток
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalVisible(true)}
+            >
+              Пригласить участника
+            </Button>
+          </Space>
+        }
+      >
+        <Table
+          columns={memberColumns}
+          dataSource={members}
+          rowKey="id"
+          pagination={false}
+          size="small"
+          loading={loading}
+        />
+      </Card>
+
+      {/* Модальное окно создания участника */}
+      <Modal
+        title="Пригласить участника команды"
+        open={isCreateModalVisible}
+        onCancel={() => {
+          setIsCreateModalVisible(false);
+          form.resetFields();
+          setSelectedRole('');
+        }}
+        footer={null}
+        width={600}
+      >
+        {/* Отладочная информация */}
+        <div style={{ marginBottom: 16, padding: 8, background: '#f0f0f0', borderRadius: 4, fontSize: '12px' }}>
+          <div>Доступных потоков: {streams.length}</div>
+          <div>Потоки: {streams.map(s => `${s.id}: ${s.name}`).join(', ')}</div>
+          <div>Выбранная роль: {selectedRole}</div>
+          <div>Текущие значения формы: {JSON.stringify(form.getFieldsValue())}</div>
+        </div>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleCreateMember}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="first_name"
+                label="Имя"
+                rules={[{ required: true, message: 'Введите имя' }]}
+              >
+                <Input placeholder="Имя" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="last_name"
+                label="Фамилия"
+                rules={[{ required: true, message: 'Введите фамилию' }]}
+              >
+                <Input placeholder="Фамилия" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, message: 'Введите email' },
+              { type: 'email', message: 'Введите корректный email' }
+            ]}
+          >
+            <Input placeholder="email@example.com" />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            label="Пароль"
+            rules={[
+              { required: true, message: 'Введите пароль' },
+              { min: 6, message: 'Пароль должен содержать минимум 6 символов' }
+            ]}
+          >
+            <Input.Password placeholder="Пароль для входа" />
+          </Form.Item>
+
+          <Form.Item
+            name="role"
+            label="Роль"
+            rules={[{ required: true, message: 'Выберите роль' }]}
+          >
+            <Select 
+              placeholder="Выберите роль"
+              value={selectedRole}
+              onChange={(value) => {
+                console.log('Role changed to:', value);
+                setSelectedRole(value);
+                // Очищаем поле потока при смене роли
+                form.setFieldsValue({ stream_id: undefined });
+              }}
+            >
+              <Option value="recruit_lead">Recruit Lead</Option>
+              <Option value="senior_recruiter">Senior Recruiter</Option>
+              <Option value="recruiter">Recruiter</Option>
+            </Select>
+          </Form.Item>
+
+          {selectedRole === 'recruiter' && (
+            <Form.Item
+              name="stream_id"
+              label="Поток (обязательно для рекрутеров)"
+              rules={[
+                { required: true, message: 'Для рекрутера необходимо выбрать поток' }
+              ]}
+            >
+              <Select 
+                placeholder="Выберите поток"
+                allowClear
+                showSearch
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
+                }
+                style={{ width: '100%' }}
+              >
+                {streams.map(stream => (
+                  <Option key={stream.id} value={stream.id}>
+                    {stream.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" icon={<UserAddOutlined />}>
+                Создать участника
+              </Button>
+              <Button onClick={() => {
+                setIsCreateModalVisible(false);
+                form.resetFields();
+                setSelectedRole('');
+              }}>
+                Отмена
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Модальное окно создания потока */}
+      <Modal
+        title="Создать новый поток"
+        open={isCreateStreamModalVisible}
+        onCancel={() => {
+          setIsCreateStreamModalVisible(false);
+          streamForm.resetFields();
+        }}
+        footer={null}
+        width={500}
+      >
+        <Form
+          form={streamForm}
+          layout="vertical"
+          onFinish={handleCreateStream}
+        >
+          <Form.Item
+            name="name"
+            label="Название потока"
+            rules={[
+              { required: true, message: 'Введите название потока' },
+              { min: 2, message: 'Название должно содержать минимум 2 символа' }
+            ]}
+          >
+            <Input placeholder="Например: Frontend-направление" />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit" icon={<PlusOutlined />}>
+                Создать поток
+              </Button>
+              <Button onClick={() => {
+                setIsCreateStreamModalVisible(false);
+                streamForm.resetFields();
+              }}>
+                Отмена
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+};
 
 interface SettingsData {
   general: {
@@ -643,85 +1137,10 @@ const CompanySettings: React.FC = () => {
     </div>
   );
 
-  const renderTeamSettings = () => (
-    <div>
-      <Card title="Участники команды" className="settings-card" style={{ marginBottom: 16 }}>
-        <List
-          dataSource={settingsData?.team.members}
-          renderItem={(member) => (
-            <List.Item
-              actions={[
-                <Tooltip title="Последняя активность">
-                  <Text type="secondary">
-                    {new Date(member.lastActive).toLocaleDateString('ru-RU')}
-                  </Text>
-                </Tooltip>,
-                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteMember(member.id)} />
-              ]}
-            >
-              <List.Item.Meta
-                avatar={
-                  <Badge status={member.status === 'active' ? 'success' : 'default'}>
-                    <Avatar icon={<UserOutlined />} />
-                  </Badge>
-                }
-                title={
-                  <div>
-                    <Text strong>{member.name}</Text>
-                    <Tag color="blue" style={{ marginLeft: 8 }}>{member.role}</Tag>
-                  </div>
-                }
-                description={
-                  <div>
-                    <div><MailOutlined /> {member.email}</div>
-                    <div style={{ marginTop: 4 }}>
-                      <Text type="secondary">Права: </Text>
-                      {member.permissions.slice(0, 2).map(perm => (
-                        <Tag key={perm} size="small">{perm}</Tag>
-                      ))}
-                      {member.permissions.length > 2 && (
-                        <Tag size="small">+{member.permissions.length - 2}</Tag>
-                      )}
-                    </div>
-                  </div>
-                }
-              />
-            </List.Item>
-          )}
-        />
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginTop: 16 }}>
-          Пригласить участника
-        </Button>
-      </Card>
+  const renderTeamSettings = () => {
+    return <TeamManagementComponent />;
+  };
 
-      <Card title="Роли и права" className="settings-card">
-        <List
-          dataSource={settingsData?.team.roles}
-          renderItem={(role) => (
-            <List.Item
-              actions={[
-                <Button type="text" icon={<SettingOutlined />}>Настроить</Button>
-              ]}
-            >
-              <List.Item.Meta
-                title={<Text strong>{role.name}</Text>}
-                description={
-                  <Space wrap>
-                    {role.permissions.map(perm => (
-                      <Tag key={perm} color="green">{perm}</Tag>
-                    ))}
-                  </Space>
-                }
-              />
-            </List.Item>
-          )}
-        />
-        <Button type="dashed" icon={<PlusOutlined />} style={{ width: '100%', marginTop: 16 }}>
-          Создать роль
-        </Button>
-      </Card>
-    </div>
-  );
 
   const renderBillingSettings = () => (
     <div>

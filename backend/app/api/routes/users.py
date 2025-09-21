@@ -10,13 +10,18 @@ import uuid
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, get_current_candidate, get_current_company
+from app.core.deps import (
+    get_current_active_user, get_current_candidate, get_current_company, 
+    get_current_company_owner, get_current_admin, get_current_recruit_lead, 
+    get_current_senior_or_lead, get_current_recruiter_or_above
+)
 from app.core.config import settings
-from app.models.user import User, CandidateProfile, CompanyProfile, UserRole
+from app.models.user import User, CandidateProfile, CompanyProfile, UserRole, RecruitmentStream
 from app.schemas.user import (
     UserUpdate, CandidateProfileUpdate, CompanyProfileUpdate,
-    CandidateWithProfile, CompanyWithProfile
+    CandidateWithProfile, CompanyWithProfile, UserCreate, UserBasic
 )
+from app.schemas.stream import Stream
 from typing import List, Optional
 from app.core.exceptions import ValidationError, NotFoundError
 
@@ -467,3 +472,267 @@ async def apply_to_company(
         "message": f"Заявка отправлена в компанию {company.first_name}",
         "company_id": company_id
     }
+
+# ========== НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ РОЛЯМИ И ПОТОКАМИ ==========
+
+@router.post("/", response_model=UserBasic)
+async def create_user(
+    user_data: UserCreate,
+    current_user: User = Depends(get_current_company_owner),
+    db: Session = Depends(get_db)
+) -> UserBasic:
+    """Создание нового пользователя (для владельцев компаний и администраторов)"""
+    
+    # Проверяем уникальность email
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        raise ValidationError("Пользователь с таким email уже существует")
+    
+    # Хешируем пароль
+    from app.core.security import get_password_hash
+    hashed_password = get_password_hash(user_data.password)
+    
+    # Создаем пользователя
+    new_user = User(
+        email=user_data.email,
+        hashed_password=hashed_password,
+        first_name=user_data.first_name,
+        last_name=user_data.last_name,
+        role=user_data.role,
+        phone=user_data.phone,
+        stream_id=user_data.stream_id,
+        is_active=True,
+        is_verified=False
+    )
+    
+    db.add(new_user)
+    
+    # Если создается Senior Recruiter, автоматически создаем для него поток
+    if user_data.role == UserRole.SENIOR_RECRUITER:
+        stream_name = f"Поток {new_user.first_name} {new_user.last_name}"
+        stream = RecruitmentStream(
+            name=stream_name,
+            senior_recruiter_id=new_user.id,
+            recruit_lead_id=current_user.id if current_user.role == UserRole.RECRUIT_LEAD else None
+        )
+        db.add(stream)
+        db.flush()  # Получаем ID потока
+        new_user.owned_stream = stream
+    
+    db.commit()
+    db.refresh(new_user)
+    
+    return new_user
+
+@router.get("/recruiters", response_model=List[UserBasic])
+async def get_recruiters(
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None,
+    stream_id: Optional[int] = None,
+    current_user: User = Depends(get_current_company_owner),
+    db: Session = Depends(get_db)
+) -> List[UserBasic]:
+    """Получение списка рекрутеров"""
+    
+    query = db.query(User).filter(User.role.in_([
+        UserRole.RECRUITER, UserRole.SENIOR_RECRUITER, UserRole.RECRUIT_LEAD
+    ]))
+    
+    # Фильтрация по правам доступа
+    if current_user.role == UserRole.SENIOR_RECRUITER:
+        # Senior Recruiter видит только рекрутеров своего потока
+        query = query.filter(
+            (User.stream_id == current_user.owned_stream.id) |
+            (User.id == current_user.id) |
+            (User.role == UserRole.RECRUIT_LEAD)
+        )
+    
+    # Поиск по имени или email
+    if search:
+        query = query.filter(
+            (User.first_name.ilike(f"%{search}%")) |
+            (User.last_name.ilike(f"%{search}%")) |
+            (User.email.ilike(f"%{search}%"))
+        )
+    
+    # Фильтр по потоку
+    if stream_id:
+        query = query.filter(User.stream_id == stream_id)
+    
+    recruiters = query.offset(skip).limit(limit).all()
+    return recruiters
+
+@router.put("/{user_id}/role", response_model=UserBasic)
+async def update_user_role(
+    user_id: int,
+    role_data: dict,  # {"role": "recruiter", "stream_id": 1}
+    current_user: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+) -> UserBasic:
+    """Обновление роли пользователя (только для администраторов)"""
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise NotFoundError("Пользователь не найден")
+    
+    new_role = role_data.get("role")
+    new_stream_id = role_data.get("stream_id")
+    
+    if new_role not in [role.value for role in UserRole]:
+        raise ValidationError("Неверная роль")
+    
+    new_role_enum = UserRole(new_role)
+    
+    # Валидация stream_id
+    if new_role_enum == UserRole.RECRUITER:
+        if not new_stream_id:
+            raise ValidationError("Для рекрутера необходимо указать поток")
+        
+        # Проверяем существование потока
+        stream = db.query(RecruitmentStream).filter(RecruitmentStream.id == new_stream_id).first()
+        if not stream:
+            raise ValidationError("Поток не найден")
+        
+        user.stream_id = new_stream_id
+    
+    elif new_role_enum == UserRole.SENIOR_RECRUITER:
+        # Для Senior Recruiter убираем stream_id и создаем новый поток
+        user.stream_id = None
+        
+        # Проверяем, нет ли уже потока у этого пользователя
+        existing_stream = db.query(RecruitmentStream).filter(
+            RecruitmentStream.senior_recruiter_id == user_id
+        ).first()
+        
+        if not existing_stream:
+            stream_name = f"Поток {user.first_name} {user.last_name}"
+            stream = RecruitmentStream(
+                name=stream_name,
+                senior_recruiter_id=user_id,
+                recruit_lead_id=current_user.id if current_user.role == UserRole.RECRUIT_LEAD else None
+            )
+            db.add(stream)
+    
+    elif new_role_enum in [UserRole.RECRUIT_LEAD, UserRole.ADMIN]:
+        # Для руководителей убираем stream_id
+        user.stream_id = None
+    
+    user.role = new_role_enum
+    db.commit()
+    db.refresh(user)
+    
+    return user
+
+@router.get("/streams/available", response_model=List[Stream])
+async def get_available_streams(
+    current_user: User = Depends(get_current_senior_or_lead),
+    db: Session = Depends(get_db)
+) -> List[Stream]:
+    """Получение доступных потоков для назначения рекрутерам"""
+    
+    if current_user.role == UserRole.RECRUIT_LEAD:
+        # Recruit Lead видит все потоки
+        streams = db.query(RecruitmentStream).all()
+    else:
+        # Senior Recruiter видит только свой поток
+        streams = db.query(RecruitmentStream).filter(
+            RecruitmentStream.senior_recruiter_id == current_user.id
+        ).all()
+    
+    return streams
+
+@router.get("/profile/recruiter")
+async def get_recruiter_profile(
+    current_user: User = Depends(get_current_recruiter_or_above),
+    db: Session = Depends(get_db)
+) -> dict:
+    """Получение профиля рекрутера с информацией о потоке"""
+    
+    profile_data = {
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "role": current_user.role.value,
+            "is_active": current_user.is_active,
+            "created_at": current_user.created_at
+        }
+    }
+    
+    # Добавляем информацию о потоке
+    if current_user.role == UserRole.RECRUITER and current_user.stream:
+        profile_data["stream"] = {
+            "id": current_user.stream.id,
+            "name": current_user.stream.name,
+            "senior_recruiter": {
+                "id": current_user.stream.senior_recruiter.id,
+                "name": current_user.stream.senior_recruiter.full_name,
+                "email": current_user.stream.senior_recruiter.email
+            } if current_user.stream.senior_recruiter else None
+        }
+    elif current_user.role == UserRole.SENIOR_RECRUITER and current_user.owned_stream:
+        profile_data["owned_stream"] = {
+            "id": current_user.owned_stream.id,
+            "name": current_user.owned_stream.name,
+            "recruiters_count": len(current_user.owned_stream.recruiters),
+            "recruiters": [
+                {
+                    "id": recruiter.id,
+                    "name": recruiter.full_name,
+                    "email": recruiter.email
+                } for recruiter in current_user.owned_stream.recruiters
+            ]
+        }
+    elif current_user.role == UserRole.RECRUIT_LEAD:
+        # Для Recruit Lead загружаем все потоки
+        streams = db.query(RecruitmentStream).options(
+            db.joinedload(RecruitmentStream.recruiters),
+            db.joinedload(RecruitmentStream.senior_recruiter)
+        ).all()
+        
+        profile_data["supervised_streams"] = [
+            {
+                "id": stream.id,
+                "name": stream.name,
+                "senior_recruiter": {
+                    "id": stream.senior_recruiter.id,
+                    "name": stream.senior_recruiter.full_name,
+                    "email": stream.senior_recruiter.email
+                } if stream.senior_recruiter else None,
+                "recruiters_count": len(stream.recruiters),
+                "recruiters": [
+                    {
+                        "id": recruiter.id,
+                        "name": recruiter.full_name,
+                        "email": recruiter.email
+                    } for recruiter in stream.recruiters
+                ]
+            } for stream in streams
+        ]
+    
+    return profile_data
+
+@router.delete("/{user_id}", status_code=204)
+async def delete_user(
+    user_id: int,
+    current_user: User = Depends(get_current_company_owner),
+    db: Session = Depends(get_db)
+):
+    """Удаление пользователя (для владельцев компаний и администраторов)"""
+    
+    # Находим пользователя
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise NotFoundError("Пользователь не найден")
+    
+    # Нельзя удалить самого себя
+    if user.id == current_user.id:
+        raise ValidationError("Нельзя удалить самого себя")
+    
+    # Удаляем пользователя
+    db.delete(user)
+    db.commit()
+    
+    return {"message": "Пользователь успешно удален"}

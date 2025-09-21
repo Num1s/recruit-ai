@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from app.core.database import engine, Base
-from app.models.user import User, CandidateProfile, CompanyProfile
+from app.models.user import User, CandidateProfile, CompanyProfile, RecruitmentStream
 from app.models.job import Job, JobApplication, InterviewInvitation
 
 def create_tables():
@@ -24,4 +24,6 @@ def create_tables():
 
 if __name__ == "__main__":
     create_tables()
+
+
 

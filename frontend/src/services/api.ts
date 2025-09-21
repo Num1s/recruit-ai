@@ -296,6 +296,143 @@ class APIService {
     return this.client.get('/jobs/reports/company');
   }
 
+  // ========== NEW METHODS FOR STREAMS AND RECRUITER MANAGEMENT ==========
+
+  async getStream(streamId: number): Promise<AxiosResponse> {
+    return this.client.get(`/streams/${streamId}`);
+  }
+
+  async updateStream(streamId: number, streamData: {
+    name?: string;
+    senior_recruiter_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.put(`/streams/${streamId}`, streamData);
+  }
+
+  async deleteStream(streamId: number): Promise<AxiosResponse> {
+    return this.client.delete(`/streams/${streamId}`);
+  }
+
+  async addRecruiterToStream(streamId: number, recruiterId: number): Promise<AxiosResponse> {
+    return this.client.post(`/streams/${streamId}/recruiters/${recruiterId}`);
+  }
+
+  async removeRecruiterFromStream(streamId: number, recruiterId: number): Promise<AxiosResponse> {
+    return this.client.delete(`/streams/${streamId}/recruiters/${recruiterId}`);
+  }
+
+  async getAvailableRecruiters(): Promise<AxiosResponse> {
+    return this.client.get('/streams/available/recruiters');
+  }
+
+  // User management endpoints for recruiters
+  async getRecruiters(params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/users/recruiters', { params });
+  }
+
+  async createUser(userData: {
+    email: string;
+    password: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    phone?: string;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.post('/users/', userData);
+  }
+
+  async updateUserRole(userId: number, roleData: {
+    role: string;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.put(`/users/${userId}/role`, roleData);
+  }
+
+  async getAvailableStreams(): Promise<AxiosResponse> {
+    return this.client.get('/users/streams/available');
+  }
+
+  // ========== STREAM MANAGEMENT ENDPOINTS ==========
+
+  async getStreams(): Promise<AxiosResponse> {
+    return this.client.get('/streams/');
+  }
+
+  async createStream(streamData: {
+    name: string;
+    senior_recruiter_id?: number;
+    recruit_lead_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.post('/streams/', streamData);
+  }
+
+  async getRecruiterProfile(): Promise<AxiosResponse> {
+    return this.client.get('/users/profile/recruiter');
+  }
+
+  // ========== TEAM MANAGEMENT ENDPOINTS ==========
+
+  async createTeamMember(userData: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    password: string;
+    role: string;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.post('/users/', userData);
+  }
+
+  async getTeamMembers(): Promise<AxiosResponse> {
+    return this.client.get('/users/recruiters');
+  }
+
+  async updateUserRole(userId: number, role: string, streamId?: number): Promise<AxiosResponse> {
+    return this.client.put(`/users/${userId}/role`, { role, stream_id: streamId });
+  }
+
+  async deleteTeamMember(userId: number): Promise<AxiosResponse> {
+    return this.client.delete(`/users/${userId}`);
+  }
+
+  // ========== ANALYTICS ENDPOINTS ==========
+
+  async getAnalyticsDashboard(params?: {
+    period_days?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/analytics/dashboard', { params });
+  }
+
+  async getStreamsAnalytics(): Promise<AxiosResponse> {
+    return this.client.get('/analytics/streams');
+  }
+
+  async getRecruitersAnalytics(params?: {
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/analytics/recruiters', { params });
+  }
+
+  async getPerformanceAnalytics(params?: {
+    period_days?: number;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/analytics/performance', { params });
+  }
+
+  async exportAnalytics(params?: {
+    format?: string;
+    stream_id?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/analytics/export', { params });
+  }
+
 }
 
 // Создаем единственный экземпляр API сервиса

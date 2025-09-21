@@ -19,11 +19,21 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Схема создания пользователя"""
     password: str
+    stream_id: Optional[int] = None
     
     @validator('password')
     def validate_password(cls, v):
         if len(v) < 6:
             raise ValueError('Пароль должен содержать минимум 6 символов')
+        return v
+    
+    @validator('stream_id')
+    def validate_stream_id(cls, v, values):
+        role = values.get('role')
+        if role == UserRole.RECRUITER and v is None:
+            raise ValueError('Для рекрутера необходимо указать поток')
+        if role in [UserRole.RECRUIT_LEAD, UserRole.SENIOR_RECRUITER] and v is not None:
+            raise ValueError('Для руководителей поток не указывается')
         return v
 
 class UserUpdate(BaseModel):
@@ -32,6 +42,25 @@ class UserUpdate(BaseModel):
     last_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    role: Optional[UserRole] = None
+    stream_id: Optional[int] = None
+
+class UserBasic(BaseModel):
+    """Базовая схема пользователя для отображения в списках"""
+    id: int
+    email: str
+    first_name: str
+    last_name: str
+    role: UserRole
+    is_active: bool
+    avatar_url: Optional[str] = None
+    
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
+    
+    class Config:
+        from_attributes = True
 
 class UserInDB(UserBase):
     """Схема пользователя в базе данных"""
@@ -39,6 +68,7 @@ class UserInDB(UserBase):
     is_active: bool
     is_verified: bool
     avatar_url: Optional[str] = None
+    stream_id: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     

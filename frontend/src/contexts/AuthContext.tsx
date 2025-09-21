@@ -32,14 +32,49 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role: 'candidate' | 'company' | 'admin';
+  role: 'candidate' | 'company' | 'admin' | 'recruit_lead' | 'senior_recruiter' | 'recruiter';
   phone?: string;
   avatar_url?: string;
+  stream_id?: number;
   company_profile?: {
     id: number;
     company_name: string;
   };
   candidate_profile?: CandidateProfile;
+  stream?: {
+    id: number;
+    name: string;
+    senior_recruiter?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  };
+  owned_stream?: {
+    id: number;
+    name: string;
+    recruiters_count: number;
+    recruiters: Array<{
+      id: number;
+      name: string;
+      email: string;
+    }>;
+  };
+  supervised_streams?: Array<{
+    id: number;
+    name: string;
+    senior_recruiter?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+    recruiters_count: number;
+    recruiters: Array<{
+      id: number;
+      name: string;
+      email: string;
+    }>;
+  }>;
 }
 
 interface AuthContextType {
@@ -51,6 +86,11 @@ interface AuthContextType {
   logout: () => void;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
+  isRecruiter: boolean;
+  isSeniorRecruiter: boolean;
+  isRecruitLead: boolean;
+  isAdmin: boolean;
+  hasRecruiterAccess: boolean;
 }
 
 interface RegisterData {
@@ -174,6 +214,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     message.success('Вы вышли из системы');
   };
 
+  // Helper methods for role checking
+  const isRecruiter = user?.role === 'recruiter';
+  const isSeniorRecruiter = user?.role === 'senior_recruiter';
+  const isRecruitLead = user?.role === 'recruit_lead';
+  const isAdmin = user?.role === 'admin';
+  const hasRecruiterAccess = ['recruiter', 'senior_recruiter', 'recruit_lead', 'admin'].includes(user?.role || '');
+
   const value: AuthContextType = {
     user,
     token,
@@ -183,6 +230,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     setUser,
     isAuthenticated: !!user && !!token,
+    isRecruiter,
+    isSeniorRecruiter,
+    isRecruitLead,
+    isAdmin,
+    hasRecruiterAccess,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

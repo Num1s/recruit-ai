@@ -7,6 +7,7 @@ import './App.css';
 // Components
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import ProtectedRoute from './components/common/ProtectedRoute.tsx';
+import RecruiterRoute from './components/common/RecruiterRoute.tsx';
 import ErrorBoundary from './components/common/ErrorBoundary.tsx';
 import { NotificationProvider } from './contexts/NotificationContext.tsx';
 
@@ -31,6 +32,7 @@ import JobCandidates from './pages/company/JobCandidates.tsx';
 import InterviewReports from './pages/company/InterviewReports.tsx';
 import InterviewInvitations from './pages/candidate/InterviewInvitations.tsx';
 import InterviewCalendarPage from './pages/candidate/InterviewCalendarPage.tsx';
+import RecruiterDashboard from './pages/recruiter/RecruiterDashboardSimple.tsx';
 
 const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
@@ -90,6 +92,19 @@ const AppRoutes: React.FC = () => {
                       <Route path="*" element={<Navigate to="/company/dashboard" replace />} />
                     </Routes>
                   </ProtectedRoute>
+                }
+              />
+
+              {/* Защищенные роуты для рекрутеров */}
+              <Route
+                path="/recruiter/*"
+                element={
+                  <RecruiterRoute>
+                    <Routes>
+                      <Route path="dashboard" element={<RecruiterDashboard />} />
+                      <Route path="*" element={<Navigate to="/recruiter/dashboard" replace />} />
+                    </Routes>
+                  </RecruiterRoute>
                 }
               />
 

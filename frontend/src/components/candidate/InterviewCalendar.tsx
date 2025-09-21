@@ -161,7 +161,6 @@ const InterviewCalendar: React.FC = () => {
         <Calendar
           dateCellRender={getDateCellRender}
           onSelect={handleDateSelect}
-          loading={loading}
           style={{ background: 'transparent' }}
         />
 
@@ -223,3 +222,5 @@ const InterviewCalendar: React.FC = () => {
 };
 
 export default InterviewCalendar;
+
+

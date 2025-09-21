@@ -2,13 +2,11 @@ import React, { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext.tsx';
 
-interface ProtectedRouteProps {
+interface RecruiterRouteProps {
   children: ReactNode;
-  requiredRole?: 'candidate' | 'company' | 'admin' | 'recruiter' | 'senior_recruiter' | 'recruit_lead';
-  requiredRoles?: string[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, requiredRoles }) => {
+const RecruiterRoute: React.FC<RecruiterRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -23,18 +21,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole,
     return <Navigate to="/login" replace />;
   }
 
-  // Проверка доступа по роли
-  let hasAccess = false;
-  
-  if (requiredRole) {
-    hasAccess = user.role === requiredRole;
-  } else if (requiredRoles) {
-    hasAccess = requiredRoles.includes(user.role);
-  } else {
-    hasAccess = true; // Если не указана роль, доступ разрешен
-  }
+  // Проверяем, что пользователь имеет права рекрутера
+  const recruiterRoles = ['recruiter', 'senior_recruiter', 'recruit_lead', 'admin'];
+  const hasRecruiterAccess = recruiterRoles.includes(user.role);
 
-  if (!hasAccess) {
+  if (!hasRecruiterAccess) {
     // Редирект на соответствующий dashboard в зависимости от роли
     let redirectPath = '/';
     
@@ -44,12 +35,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole,
         break;
       case 'company':
         redirectPath = '/company/dashboard';
-        break;
-      case 'recruiter':
-      case 'senior_recruiter':
-      case 'recruit_lead':
-      case 'admin':
-        redirectPath = '/recruiter/dashboard';
         break;
       default:
         redirectPath = '/';
@@ -61,4 +46,4 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole,
   return <>{children}</>;
 };
 
-export default ProtectedRoute;
+export default RecruiterRoute;

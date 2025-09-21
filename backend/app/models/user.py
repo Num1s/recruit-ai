@@ -14,6 +14,26 @@ class UserRole(enum.Enum):
     CANDIDATE = "candidate"
     COMPANY = "company"
     ADMIN = "admin"
+    RECRUIT_LEAD = "recruit_lead"
+    SENIOR_RECRUITER = "senior_recruiter"
+    RECRUITER = "recruiter"
+
+class RecruitmentStream(Base):
+    """Модель потока рекрутинга"""
+    __tablename__ = "recruitment_streams"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)  # "Поток 1", "Frontend-направление"
+    senior_recruiter_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Владелец потока
+    recruit_lead_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Курирующий лид
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    senior_recruiter = relationship("User", foreign_keys=[senior_recruiter_id], back_populates="owned_stream")
+    recruit_lead = relationship("User", foreign_keys=[recruit_lead_id], back_populates="supervised_streams")
+    recruiters = relationship("User", back_populates="stream", foreign_keys="User.stream_id")
 
 class User(Base):
     """Базовая модель пользователя"""
@@ -32,9 +52,15 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
+    # Recruitment stream relationship (only for recruiters)
+    stream_id = Column(Integer, ForeignKey("recruitment_streams.id"), nullable=True)
+    
     # Relationships
     candidate_profile = relationship("CandidateProfile", back_populates="user", uselist=False)
     company_profile = relationship("CompanyProfile", back_populates="user", uselist=False)
+    stream = relationship("RecruitmentStream", back_populates="recruiters", foreign_keys=[stream_id])
+    owned_stream = relationship("RecruitmentStream", back_populates="senior_recruiter", foreign_keys="RecruitmentStream.senior_recruiter_id")
+    supervised_streams = relationship("RecruitmentStream", back_populates="recruit_lead", foreign_keys="RecruitmentStream.recruit_lead_id")
     
     @property
     def full_name(self):

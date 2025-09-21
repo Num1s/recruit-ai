@@ -8,7 +8,7 @@ import os
 from contextlib import asynccontextmanager
 
 # Third-party imports
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.exceptions import setup_exception_handlers
-from app.api.routes import auth, users, companies, jobs, interviews, reports
+from app.api.routes import auth, users, companies, jobs, interviews, reports, streams, analytics
 
 # Загрузка переменных окружения с обработкой ошибок
 try:
@@ -76,6 +76,8 @@ app.include_router(companies.router, prefix="/api/companies", tags=["companies"]
 app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(interviews.router, prefix="/api/interviews", tags=["interviews"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+app.include_router(streams.router, prefix="/api/streams", tags=["streams"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 
 # Static files mounting (создаем папку если её нет)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -111,7 +113,7 @@ async def serve_spa(request: Request, full_path: str):
     # Если это API запрос, пропускаем
     if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("redoc"):
         # Эти роуты уже обработаны выше
-        return {"error": "Not found", "path": full_path}
+        raise HTTPException(status_code=404, detail="Not found")
     
     # Путь к index.html
     index_file = os.path.join(FRONTEND_BUILD_DIR, "index.html")
