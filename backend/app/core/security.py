@@ -75,6 +75,29 @@ def generate_verification_token() -> str:
     import secrets
     return secrets.token_urlsafe(32)
 
+def encrypt_data(data: str) -> str:
+    """Шифрование данных для хранения в базе"""
+    from cryptography.fernet import Fernet
+    import base64
+    
+    # Используем SECRET_KEY для создания ключа шифрования
+    key = base64.urlsafe_b64encode(settings.SECRET_KEY.encode()[:32].ljust(32, b'0'))
+    f = Fernet(key)
+    encrypted_data = f.encrypt(data.encode())
+    return base64.urlsafe_b64encode(encrypted_data).decode()
+
+def decrypt_data(encrypted_data: str) -> str:
+    """Расшифровка данных из базы"""
+    from cryptography.fernet import Fernet
+    import base64
+    
+    # Используем SECRET_KEY для создания ключа шифрования
+    key = base64.urlsafe_b64encode(settings.SECRET_KEY.encode()[:32].ljust(32, b'0'))
+    f = Fernet(key)
+    decoded_data = base64.urlsafe_b64decode(encrypted_data.encode())
+    decrypted_data = f.decrypt(decoded_data)
+    return decrypted_data.decode()
+
 
 
 

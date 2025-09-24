@@ -24,8 +24,8 @@ import {
   UserDeleteOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import { authAPI } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
+import { authAPI } from '../../services/api.ts';
+import { useAuth } from '../../contexts/AuthContext.tsx';
 
 const { Title } = Typography;
 const { Option } = Select;

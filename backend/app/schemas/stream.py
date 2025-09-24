@@ -61,3 +61,4 @@ from app.schemas.user import UserBasic
 
 # Update forward references
 StreamWithRecruiters.model_rebuild()
+

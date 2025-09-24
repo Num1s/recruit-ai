@@ -25,7 +25,7 @@ import {
   CrownOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { authAPI } from '../../services/api';
+import { authAPI } from '../../services/api.ts';
 
 const { Title } = Typography;
 const { Option } = Select;

@@ -444,6 +444,125 @@ async def invite_candidate(
         "job_title": job.title
     }
 
+@router.post("/candidates/{candidate_id}/invite-recruiter")
+async def invite_candidate_by_recruiter(
+    candidate_id: int,
+    current_user: User = Depends(get_current_recruiter_or_above),
+    db: Session = Depends(get_db)
+) -> Any:
+    """Отправка приглашения кандидату от рекрутера"""
+    
+    # Проверяем, что текущий пользователь - рекрутер или выше
+    if current_user.role not in [UserRole.RECRUITER, UserRole.SENIOR_RECRUITER, UserRole.RECRUIT_LEAD]:
+        raise ValidationError("Только рекрутеры могут отправлять приглашения")
+    
+    # Находим кандидата
+    candidate = db.query(User).filter(
+        User.id == candidate_id,
+        User.role == UserRole.CANDIDATE
+    ).first()
+    
+    if not candidate:
+        raise NotFoundError("Кандидат не найден")
+    
+    # Проверяем, что у кандидата есть профиль
+    if not candidate.candidate_profile:
+        raise ValidationError("У кандидата нет профиля")
+    
+    # Создаем общее приглашение от рекрутера
+    from app.models.job import Job, InterviewInvitation, InvitationStatus, JobStatus, JobType, ExperienceLevel
+    from datetime import datetime, timedelta
+    
+    # Находим или создаем специальную компанию для рекрутеров
+    recruiter_company = db.query(CompanyProfile).filter(
+        CompanyProfile.company_name == "Recruit.ai - Рекрутеры"
+    ).first()
+    
+    if not recruiter_company:
+        # Создаем специального системного пользователя для рекрутеров
+        system_user = db.query(User).filter(
+            User.email == "system@recruit.ai"
+        ).first()
+        
+        if not system_user:
+            system_user = User(
+                email="system@recruit.ai",
+                hashed_password="$2b$12$dummy_hash_for_system_user",  # Dummy hash
+                first_name="System",
+                last_name="Recruiter",
+                role=UserRole.COMPANY,
+                is_active=True,
+                is_verified=True
+            )
+            db.add(system_user)
+            db.commit()
+            db.refresh(system_user)
+        
+        # Создаем специальную компанию для рекрутеров
+        recruiter_company = CompanyProfile(
+            user_id=system_user.id,
+            company_name="Recruit.ai - Рекрутеры",
+            description="Специальная компания для приглашений от рекрутеров",
+            industry="HR & Recruitment",
+            company_size="50+",
+            is_verified=True,
+            subscription_plan="enterprise"
+        )
+        db.add(recruiter_company)
+        db.commit()
+        db.refresh(recruiter_company)
+    
+    # Создаем временную вакансию для приглашения от рекрутера
+    job = Job(
+        company_id=recruiter_company.id,
+        title="Приглашение от рекрутера",
+        description="Приглашение на собеседование от рекрутера",
+        requirements="Общие требования",
+        responsibilities="Общие обязанности",
+        job_type=JobType.FULL_TIME,
+        experience_level=ExperienceLevel.MIDDLE,
+        status=JobStatus.ACTIVE,
+        is_ai_interview_enabled=True,
+        max_candidates=100,
+        created_at=datetime.now()
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    
+    # Проверяем, не было ли уже отправлено приглашение этому кандидату от этого рекрутера
+    existing_invitation = db.query(InterviewInvitation).filter(
+        InterviewInvitation.candidate_id == candidate.candidate_profile.id,
+        InterviewInvitation.job_id == job.id
+    ).first()
+    
+    if existing_invitation:
+        return {
+            "message": f"Приглашение уже было отправлено кандидату {candidate.first_name} {candidate.last_name}",
+            "invitation_id": existing_invitation.id
+        }
+    
+    # Создаем приглашение
+    invitation = InterviewInvitation(
+        job_id=job.id,
+        candidate_id=candidate.candidate_profile.id,
+        status=InvitationStatus.SENT,
+        expires_at=datetime.now() + timedelta(days=7),  # Приглашение действует 7 дней
+        interview_language="ru"
+    )
+    
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
+    
+    return {
+        "message": f"Приглашение отправлено кандидату {candidate.first_name} {candidate.last_name}",
+        "candidate_id": candidate_id,
+        "invitation_id": invitation.id,
+        "job_title": job.title,
+        "recruiter_name": f"{current_user.first_name} {current_user.last_name}"
+    }
+
 @router.post("/companies/{company_id}/apply")
 async def apply_to_company(
     company_id: int,

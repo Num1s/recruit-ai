@@ -32,7 +32,13 @@ import JobCandidates from './pages/company/JobCandidates.tsx';
 import InterviewReports from './pages/company/InterviewReports.tsx';
 import InterviewInvitations from './pages/candidate/InterviewInvitations.tsx';
 import InterviewCalendarPage from './pages/candidate/InterviewCalendarPage.tsx';
-import RecruiterDashboard from './pages/recruiter/RecruiterDashboardSimple.tsx';
+import RecruiterDashboard from './pages/recruiter/RecruiterDashboard.tsx';
+import RecruiterProfile from './pages/recruiter/RecruiterProfile.tsx';
+import RecruiterSettings from './pages/recruiter/RecruiterSettings.tsx';
+import CandidateSearch from './pages/recruiter/CandidateSearch.tsx';
+import CandidatesInProcess from './pages/recruiter/CandidatesInProcess.tsx';
+import RecruiterInterviewReports from './pages/recruiter/InterviewReports.tsx';
+// import IntegrationsPageAntd from './pages/integrations/IntegrationsPageAntd.tsx';
 
 const AppRoutes: React.FC = () => {
   const { user, loading } = useAuth();
@@ -102,6 +108,12 @@ const AppRoutes: React.FC = () => {
                   <RecruiterRoute>
                     <Routes>
                       <Route path="dashboard" element={<RecruiterDashboard />} />
+                      <Route path="profile" element={<RecruiterProfile />} />
+                      <Route path="settings" element={<RecruiterSettings />} />
+                      <Route path="candidates" element={<CandidateSearch />} />
+                      <Route path="candidates-in-process" element={<CandidatesInProcess />} />
+                      <Route path="interview-reports" element={<RecruiterInterviewReports />} />
+                      {/* <Route path="integrations" element={<IntegrationsPageAntd />} /> */}
                       <Route path="*" element={<Navigate to="/recruiter/dashboard" replace />} />
                     </Routes>
                   </RecruiterRoute>

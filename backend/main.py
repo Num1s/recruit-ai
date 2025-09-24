@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.exceptions import setup_exception_handlers
-from app.api.routes import auth, users, companies, jobs, interviews, reports, streams, analytics
+from app.api.routes import auth, users, companies, jobs, interviews, reports, streams, analytics, integrations
 
 # Загрузка переменных окружения с обработкой ошибок
 try:
@@ -78,6 +78,7 @@ app.include_router(interviews.router, prefix="/api/interviews", tags=["interview
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(streams.router, prefix="/api/streams", tags=["streams"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+app.include_router(integrations.router, prefix="/api/integrations", tags=["integrations"])
 
 # Static files mounting (создаем папку если её нет)
 os.makedirs(UPLOADS_DIR, exist_ok=True)

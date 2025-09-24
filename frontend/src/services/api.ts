@@ -237,6 +237,10 @@ class APIService {
     return this.client.post(`/users/candidates/${candidateId}/invite`);
   }
 
+  async inviteCandidateByRecruiter(candidateId: number): Promise<AxiosResponse> {
+    return this.client.post(`/users/candidates/${candidateId}/invite-recruiter`);
+  }
+
   async applyToCompany(companyId: number): Promise<AxiosResponse> {
     return this.client.post(`/users/companies/${companyId}/apply`);
   }
@@ -347,12 +351,6 @@ class APIService {
     return this.client.post('/users/', userData);
   }
 
-  async updateUserRole(userId: number, roleData: {
-    role: string;
-    stream_id?: number;
-  }): Promise<AxiosResponse> {
-    return this.client.put(`/users/${userId}/role`, roleData);
-  }
 
   async getAvailableStreams(): Promise<AxiosResponse> {
     return this.client.get('/users/streams/available');
@@ -431,6 +429,84 @@ class APIService {
     stream_id?: number;
   }): Promise<AxiosResponse> {
     return this.client.get('/analytics/export', { params });
+  }
+
+  // ========== INTEGRATIONS ENDPOINTS ==========
+
+  async getIntegrations(): Promise<AxiosResponse> {
+    return this.client.get('/integrations/');
+  }
+
+  async createIntegration(integrationData: any): Promise<AxiosResponse> {
+    return this.client.post('/integrations/', integrationData);
+  }
+
+  async updateIntegration(integrationId: number, updateData: any): Promise<AxiosResponse> {
+    return this.client.put(`/integrations/${integrationId}`, updateData);
+  }
+
+  async deleteIntegration(integrationId: number): Promise<AxiosResponse> {
+    return this.client.delete(`/integrations/${integrationId}`);
+  }
+
+  async getIntegration(integrationId: number): Promise<AxiosResponse> {
+    return this.client.get(`/integrations/${integrationId}`);
+  }
+
+  async searchCandidates(searchParams: {
+    platform: string;
+    keywords?: string[];
+    locations?: string[];
+    experience_min?: number;
+    experience_max?: number;
+    salary_min?: number;
+    salary_max?: number;
+    limit?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.post('/integrations/search-candidates', searchParams);
+  }
+
+  async getExternalCandidates(params?: {
+    platform?: string;
+    is_imported?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<AxiosResponse> {
+    return this.client.get('/integrations/candidates/', { params });
+  }
+
+  async getExternalCandidate(candidateId: number): Promise<AxiosResponse> {
+    return this.client.get(`/integrations/candidates/${candidateId}`);
+  }
+
+  async importCandidate(importData: {
+    external_candidate_id: number;
+    create_internal_user?: boolean;
+    import_notes?: string;
+  }): Promise<AxiosResponse> {
+    return this.client.post('/integrations/import-candidate', importData);
+  }
+
+  async syncIntegration(integrationId: number): Promise<AxiosResponse> {
+    return this.client.post(`/integrations/${integrationId}/sync`);
+  }
+
+  async getSyncStatus(integrationId: number): Promise<AxiosResponse> {
+    return this.client.get(`/integrations/${integrationId}/sync-status`);
+  }
+
+  async getIntegrationLogs(integrationId: number, limit?: number): Promise<AxiosResponse> {
+    return this.client.get(`/integrations/${integrationId}/logs`, { 
+      params: { limit } 
+    });
+  }
+
+  async getIntegrationStats(): Promise<AxiosResponse> {
+    return this.client.get('/integrations/stats/overview');
+  }
+
+  async getSupportedPlatforms(): Promise<AxiosResponse> {
+    return this.client.get('/integrations/platforms/supported');
   }
 
 }

@@ -12,6 +12,7 @@ import {
   Button,
   Space,
   Empty,
+  Dropdown,
 } from 'antd';
 import {
   TeamOutlined,
@@ -19,12 +20,17 @@ import {
   CrownOutlined,
   BarChartOutlined,
   SettingOutlined,
+  LogoutOutlined,
+  SearchOutlined,
+  FileTextOutlined,
+  UserSwitchOutlined,
 } from '@ant-design/icons';
-import { authAPI } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
-import StreamManagement from '../../components/recruiter/StreamManagement';
-import UserManagement from '../../components/recruiter/UserManagement';
-import Analytics from '../../components/recruiter/Analytics';
+import { authAPI } from '../../services/api.ts';
+import { useAuth } from '../../contexts/AuthContext.tsx';
+import { useNavigate } from 'react-router-dom';
+import StreamManagement from '../../components/recruiter/StreamManagement.tsx';
+import UserManagement from '../../components/recruiter/UserManagement.tsx';
+import Analytics from '../../components/recruiter/Analytics.tsx';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -76,9 +82,11 @@ interface RecruiterProfile {
 }
 
 const RecruiterDashboard: React.FC = () => {
-  const { user, isRecruiter, isSeniorRecruiter, isRecruitLead, isAdmin } = useAuth();
+  const { user, isRecruiter, isSeniorRecruiter, isRecruitLead, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<RecruiterProfile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
@@ -90,10 +98,12 @@ const RecruiterDashboard: React.FC = () => {
   const fetchRecruiterProfile = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await authAPI.getRecruiterProfile();
       setProfile(response.data);
     } catch (error: any) {
       console.error('Error fetching recruiter profile:', error);
+      setError('Ошибка при загрузке профиля. Попробуйте обновить страницу.');
     } finally {
       setLoading(false);
     }
@@ -136,8 +146,48 @@ const RecruiterDashboard: React.FC = () => {
 
   const roleInfo = getRoleInfo();
 
+  const handleMenuClick = (key: string) => {
+    switch (key) {
+      case 'profile':
+        navigate('/recruiter/profile');
+        break;
+      case 'settings':
+        navigate('/recruiter/settings');
+        break;
+      case 'logout':
+        logout();
+        break;
+      default:
+        break;
+    }
+  };
+
   const renderOverviewTab = () => {
-    if (!profile) return <Empty description="Загрузка профиля..." />;
+    if (error) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <Empty 
+            description={error}
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          >
+            <Button type="primary" onClick={fetchRecruiterProfile}>
+              Попробовать снова
+            </Button>
+          </Empty>
+        </div>
+      );
+    }
+    
+    if (!profile) {
+      return (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <Empty 
+            description="Загрузка профиля..." 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+          />
+        </div>
+      );
+    }
 
     return (
       <div>
@@ -148,17 +198,17 @@ const RecruiterDashboard: React.FC = () => {
               <Avatar size={64} icon={roleInfo.icon} style={{ backgroundColor: roleInfo.color }} />
             </Col>
             <Col flex={1}>
-              <Title level={3} style={{ margin: 0 }}>
+              <Title level={3} style={{ margin: 0, color: '#1f1f1f' }}>
                 {profile.user.first_name} {profile.user.last_name}
               </Title>
-              <Text type="secondary">{profile.user.email}</Text>
+              <Text type="secondary" style={{ color: '#666' }}>{profile.user.email}</Text>
               <br />
               <Tag color={roleInfo.color} icon={roleInfo.icon} style={{ marginTop: 8 }}>
                 {roleInfo.title}
               </Tag>
             </Col>
             <Col>
-              <Text type="secondary">
+              <Text type="secondary" style={{ color: '#666' }}>
                 В системе с: {new Date(profile.user.created_at).toLocaleDateString('ru-RU')}
               </Text>
             </Col>
@@ -174,12 +224,29 @@ const RecruiterDashboard: React.FC = () => {
                   title="Мой поток"
                   value={profile.stream.name}
                   prefix={<TeamOutlined />}
+                  valueStyle={{ color: '#1890ff' }}
                 />
                 {profile.stream.senior_recruiter && (
                   <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
                     Старший рекрутер: {profile.stream.senior_recruiter.name}
                   </div>
                 )}
+              </Card>
+            </Col>
+          )}
+          
+          {isRecruiter && !profile.stream && (
+            <Col span={8}>
+              <Card>
+                <Statistic
+                  title="Мой поток"
+                  value="Не назначен"
+                  prefix={<TeamOutlined />}
+                  valueStyle={{ color: '#fa8c16' }}
+                />
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  Обратитесь к администратору
+                </div>
               </Card>
             </Col>
           )}
@@ -192,6 +259,7 @@ const RecruiterDashboard: React.FC = () => {
                     title="Мой поток"
                     value={profile.owned_stream.name}
                     prefix={<TeamOutlined />}
+                    valueStyle={{ color: '#1890ff' }}
                   />
                 </Card>
               </Col>
@@ -201,6 +269,7 @@ const RecruiterDashboard: React.FC = () => {
                     title="Рекрутеров в потоке"
                     value={profile.owned_stream.recruiters_count}
                     prefix={<UserOutlined />}
+                    valueStyle={{ color: '#52c41a' }}
                   />
                 </Card>
               </Col>
@@ -215,6 +284,7 @@ const RecruiterDashboard: React.FC = () => {
                     title="Всего потоков"
                     value={profile.supervised_streams.length}
                     prefix={<TeamOutlined />}
+                    valueStyle={{ color: '#1890ff' }}
                   />
                 </Card>
               </Col>
@@ -224,6 +294,7 @@ const RecruiterDashboard: React.FC = () => {
                     title="Всего рекрутеров"
                     value={profile.supervised_streams.reduce((sum, stream) => sum + stream.recruiters_count, 0)}
                     prefix={<UserOutlined />}
+                    valueStyle={{ color: '#52c41a' }}
                   />
                 </Card>
               </Col>
@@ -233,6 +304,7 @@ const RecruiterDashboard: React.FC = () => {
                     title="Старших рекрутеров"
                     value={profile.supervised_streams.filter(s => s.senior_recruiter).length}
                     prefix={<CrownOutlined />}
+                    valueStyle={{ color: '#fa8c16' }}
                   />
                 </Card>
               </Col>
@@ -242,23 +314,23 @@ const RecruiterDashboard: React.FC = () => {
 
         {/* Stream Details */}
         {isRecruiter && profile.stream && (
-          <Card title="Информация о потоке">
+          <Card title="Информация о потоке" style={{ marginBottom: 24 }}>
             <Row gutter={16}>
               <Col span={12}>
                 <div>
-                  <Text strong>Название потока:</Text>
+                  <Text strong style={{ color: '#1f1f1f' }}>Название потока:</Text>
                   <br />
-                  <Text>{profile.stream.name}</Text>
+                  <Text style={{ color: '#1f1f1f' }}>{profile.stream.name}</Text>
                 </div>
               </Col>
               {profile.stream.senior_recruiter && (
                 <Col span={12}>
                   <div>
-                    <Text strong>Старший рекрутер:</Text>
+                    <Text strong style={{ color: '#1f1f1f' }}>Старший рекрутер:</Text>
                     <br />
-                    <Text>{profile.stream.senior_recruiter.name}</Text>
+                    <Text style={{ color: '#1f1f1f' }}>{profile.stream.senior_recruiter.name}</Text>
                     <br />
-                    <Text type="secondary">{profile.stream.senior_recruiter.email}</Text>
+                    <Text type="secondary" style={{ color: '#666' }}>{profile.stream.senior_recruiter.email}</Text>
                   </div>
                 </Col>
               )}
@@ -272,16 +344,16 @@ const RecruiterDashboard: React.FC = () => {
             <Row gutter={16}>
               <Col span={12}>
                 <div>
-                  <Text strong>Название потока:</Text>
+                  <Text strong style={{ color: '#1f1f1f' }}>Название потока:</Text>
                   <br />
-                  <Text>{profile.owned_stream.name}</Text>
+                  <Text style={{ color: '#1f1f1f' }}>{profile.owned_stream.name}</Text>
                 </div>
               </Col>
               <Col span={12}>
                 <div>
-                  <Text strong>Количество рекрутеров:</Text>
+                  <Text strong style={{ color: '#1f1f1f' }}>Количество рекрутеров:</Text>
                   <br />
-                  <Text>{profile.owned_stream.recruiters_count}</Text>
+                  <Text style={{ color: '#1f1f1f' }}>{profile.owned_stream.recruiters_count}</Text>
                 </div>
               </Col>
             </Row>
@@ -392,19 +464,130 @@ const RecruiterDashboard: React.FC = () => {
     children: renderAnalyticsTab(),
   });
 
+  if (loading && !profile) {
+    return (
+      <div className="dashboard-container">
+        <div className="dashboard-header">
+          <div>
+            <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+              Recruit.ai
+            </Title>
+          </div>
+        </div>
+        <div className="dashboard-content">
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <Empty 
+              description="Загрузка..." 
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="recruiter-dashboard">
-      <div style={{ padding: '24px', position: 'relative', zIndex: 1 }}>
-        <Title level={2} style={{ color: '#ffffff', marginBottom: '24px' }}>
-          Панель управления рекрутингом
-        </Title>
-        
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          className="recruiter-tabs"
-        />
+    <div className="dashboard-container">
+      <div className="dashboard-header">
+        <div>
+          <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+            Recruit.ai
+          </Title>
+        </div>
+        <Space>
+          <Button 
+            type="default" 
+            icon={<TeamOutlined />}
+            onClick={() => setActiveTab('streams')}
+          >
+            Потоки
+          </Button>
+          <Button 
+            type="default" 
+            icon={<UserOutlined />}
+            onClick={() => setActiveTab('users')}
+          >
+            Пользователи
+          </Button>
+          <Button 
+            type="default" 
+            icon={<BarChartOutlined />}
+            onClick={() => setActiveTab('analytics')}
+          >
+            Аналитика
+          </Button>
+          <Button 
+            type="default" 
+            icon={<SearchOutlined />}
+            onClick={() => navigate('/recruiter/candidates')}
+          >
+            Поиск кандидатов
+          </Button>
+          <Button 
+            type="default" 
+            icon={<UserSwitchOutlined />}
+            onClick={() => navigate('/recruiter/candidates-in-process')}
+          >
+            Кандидаты в отборе
+          </Button>
+          <Button 
+            type="default" 
+            icon={<FileTextOutlined />}
+            onClick={() => navigate('/recruiter/interview-reports')}
+          >
+            Отчеты по интервью
+          </Button>
+          <Dropdown 
+            menu={{ 
+              items: [
+                {
+                  key: 'profile',
+                  icon: <UserOutlined />,
+                  label: 'Профиль',
+                },
+                {
+                  key: 'settings',
+                  icon: <SettingOutlined />,
+                  label: 'Настройки',
+                },
+                {
+                  type: 'divider' as const,
+                },
+                {
+                  key: 'logout',
+                  icon: <LogoutOutlined />,
+                  label: 'Выйти',
+                },
+              ],
+              onClick: ({ key }) => handleMenuClick(key)
+            }}
+            placement="bottomRight"
+          >
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={roleInfo.icon} style={{ backgroundColor: roleInfo.color }} />
+              <span>{user?.first_name} {user?.last_name}</span>
+            </Space>
+          </Dropdown>
+        </Space>
+      </div>
+
+      <div className="dashboard-content">
+        <div style={{ marginBottom: '2rem' }}>
+          <Title level={2}>
+            Панель рекрутера
+          </Title>
+          <Text type="secondary">
+            Управление потоками рекрутинга, пользователями и аналитикой
+          </Text>
+        </div>
+
+        <Card>
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            items={tabItems}
+          />
+        </Card>
       </div>
     </div>
   );
