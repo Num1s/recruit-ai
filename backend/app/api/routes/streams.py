@@ -8,7 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, get_current_admin, get_current_company_owner, get_current_senior_or_lead
+from app.core.deps import get_current_active_user, get_current_admin, get_current_company_owner, get_current_senior_or_lead, get_current_stream_manager
 from app.models.user import User, UserRole, RecruitmentStream
 from app.schemas.stream import Stream, StreamCreate, StreamUpdate
 from app.schemas.user import UserBasic
@@ -48,10 +48,10 @@ async def test_streams():
 
 @router.get("/", response_model=List[StreamWithRecruiters])
 async def get_streams(
-    current_user: User = Depends(get_current_company_owner),
+    current_user: User = Depends(get_current_stream_manager),
     db: Session = Depends(get_db)
 ) -> List[StreamWithRecruiters]:
-    """Получение списка потоков (для владельцев компаний и администраторов)"""
+    """Получение списка потоков (для управляющих потоками)"""
     
     if current_user.role in [UserRole.RECRUIT_LEAD, UserRole.ADMIN, UserRole.COMPANY]:
         # Recruit Lead, Admin и владельцы компаний видят все потоки

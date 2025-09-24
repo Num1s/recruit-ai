@@ -3,7 +3,7 @@ API роуты для пользователей
 """
 
 from fastapi import APIRouter, Depends, UploadFile, File
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Any
 import os
 import uuid
@@ -13,7 +13,7 @@ from app.core.database import get_db
 from app.core.deps import (
     get_current_active_user, get_current_candidate, get_current_company, 
     get_current_company_owner, get_current_admin, get_current_recruit_lead, 
-    get_current_senior_or_lead, get_current_recruiter_or_above
+    get_current_senior_or_lead, get_current_recruiter_or_above, get_current_stream_manager
 )
 from app.core.config import settings
 from app.models.user import User, CandidateProfile, CompanyProfile, UserRole, RecruitmentStream
@@ -649,7 +649,7 @@ async def get_recruiters(
     limit: int = 50,
     search: Optional[str] = None,
     stream_id: Optional[int] = None,
-    current_user: User = Depends(get_current_company_owner),
+    current_user: User = Depends(get_current_stream_manager),
     db: Session = Depends(get_db)
 ) -> List[UserBasic]:
     """Получение списка рекрутеров"""
@@ -807,8 +807,8 @@ async def get_recruiter_profile(
     elif current_user.role == UserRole.RECRUIT_LEAD:
         # Для Recruit Lead загружаем все потоки
         streams = db.query(RecruitmentStream).options(
-            db.joinedload(RecruitmentStream.recruiters),
-            db.joinedload(RecruitmentStream.senior_recruiter)
+            joinedload(RecruitmentStream.recruiters),
+            joinedload(RecruitmentStream.senior_recruiter)
         ).all()
         
         profile_data["supervised_streams"] = [

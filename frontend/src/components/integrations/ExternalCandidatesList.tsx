@@ -16,7 +16,10 @@ import {
   Modal,
   message,
   Badge,
-  Tooltip
+  Tooltip,
+  Slider,
+  Divider,
+  Form
 } from 'antd';
 import {
   UserOutlined,
@@ -31,8 +34,11 @@ import {
   CalendarOutlined,
   LinkOutlined,
   GithubOutlined,
-  LinkedinOutlined
+  LinkedinOutlined,
+  FilterOutlined
 } from '@ant-design/icons';
+import { authAPI } from '../../services/api.ts';
+// import { CandidateSearchForm } from './index';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -42,7 +48,8 @@ interface ExternalCandidate {
   id: number;
   external_id: string;
   platform: string;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
   email?: string;
   phone?: string;
   profile_url?: string;
@@ -52,7 +59,8 @@ interface ExternalCandidate {
   current_company?: string;
   experience_years?: number;
   location?: string;
-  skills?: string;
+  skills?: string | string[];
+  summary?: string;
   salary_min?: number;
   salary_max?: number;
   is_imported: boolean;
@@ -70,9 +78,15 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
   const [searchTerm, setSearchTerm] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
   const [importedFilter, setImportedFilter] = useState<string>('all');
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
+  const [experienceRange, setExperienceRange] = useState<[number, number]>([0, 15]);
+  const [salaryRange, setSalaryRange] = useState<[number, number]>([0, 300000]);
+  const [locationFilter, setLocationFilter] = useState<string>('');
   const [selectedCandidate, setSelectedCandidate] = useState<ExternalCandidate | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [importing, setImporting] = useState<number | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSearchForm, setShowSearchForm] = useState(false);
 
   useEffect(() => {
     loadCandidates();
@@ -82,13 +96,71 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
     try {
       setLoading(true);
       
-      // Моковые данные для демонстрации
+      // Подготавливаем параметры для API
+      const params: any = {
+        limit: 100,
+        offset: 0
+      };
+
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+
+      if (platformFilter !== 'all') {
+        params.platform = platformFilter;
+      }
+
+      if (importedFilter !== 'all') {
+        params.is_imported = importedFilter === 'imported';
+      }
+
+      if (selectedSkills.length > 0) {
+        params.skills = selectedSkills.join(',');
+      }
+
+      if (experienceRange[0] > 0 || experienceRange[1] < 15) {
+        params.experience_min = experienceRange[0];
+        params.experience_max = experienceRange[1];
+      }
+
+      if (salaryRange[0] > 0 || salaryRange[1] < 300000) {
+        params.salary_min = salaryRange[0];
+        params.salary_max = salaryRange[1];
+      }
+
+      if (locationFilter) {
+        params.location = locationFilter;
+      }
+
+      console.log('Загружаем кандидатов с параметрами:', params);
+      
+      const response = await authAPI.getExternalCandidates(params);
+      console.log('Ответ от API getExternalCandidates:', response.data);
+      
+      // Проверяем, что response.data является массивом
+      const candidates = Array.isArray(response.data) ? response.data : [];
+      setCandidates(candidates);
+    } catch (error: any) {
+      console.error('Ошибка загрузки кандидатов:', error);
+      
+      // Более детальная обработка ошибок
+      if (error.response) {
+        const errorMessage = error.response.data?.message || error.response.data?.detail || 'Ошибка сервера';
+        message.error(`Ошибка загрузки кандидатов: ${errorMessage}`);
+      } else if (error.request) {
+        message.error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+      } else {
+        message.error(`Ошибка: ${error.message}`);
+      }
+      
+      // Fallback к моковым данным в случае ошибки
       const mockCandidates: ExternalCandidate[] = [
         {
           id: 1,
           external_id: 'linkedin_12345',
           platform: 'linkedin',
-          full_name: 'Алексей Петров',
+          first_name: 'Алексей',
+          last_name: 'Петров',
           email: 'alexey.petrov@email.com',
           phone: '+7 (999) 123-45-67',
           profile_url: 'https://linkedin.com/in/alexey-petrov',
@@ -99,6 +171,7 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
           experience_years: 5,
           location: 'Москва',
           skills: 'React, TypeScript, Node.js, Python, Docker',
+          summary: 'Опытный разработчик с 5-летним стажем',
           salary_min: 150000,
           salary_max: 200000,
           is_imported: false,
@@ -107,48 +180,28 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
         },
         {
           id: 2,
-          external_id: 'hh_67890',
-          platform: 'hh_ru',
-          full_name: 'Мария Сидорова',
-          email: 'maria.sidorova@email.com',
-          phone: '+7 (999) 234-56-78',
-          profile_url: 'https://hh.ru/resume/67890',
-          current_position: 'Backend Developer',
-          current_company: 'StartupXYZ',
-          experience_years: 3,
-          location: 'Санкт-Петербург',
-          skills: 'Python, Django, PostgreSQL, Redis, AWS',
-          salary_min: 120000,
-          salary_max: 180000,
-          is_imported: true,
-          last_synced_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date().toISOString()
-        },
-        {
-          id: 3,
-          external_id: 'superjob_11111',
-          platform: 'superjob',
-          full_name: 'Дмитрий Козлов',
-          email: 'dmitry.kozlov@email.com',
-          phone: '+7 (999) 345-67-89',
-          profile_url: 'https://superjob.ru/resume/11111',
-          current_position: 'Full Stack Developer',
-          current_company: 'WebStudio',
-          experience_years: 4,
-          location: 'Екатеринбург',
-          skills: 'Vue.js, Laravel, MySQL, Git, Linux',
-          salary_min: 100000,
-          salary_max: 150000,
+          external_id: 'lalafo_101',
+          platform: 'lalafo',
+          first_name: 'Айбек',
+          last_name: 'Абдылдаев',
+          email: 'aibek.abdyl@example.com',
+          phone: '+996 (555) 123-456',
+          profile_url: 'https://lalafo.kg/profile/aibek-dev',
+          current_position: 'Python Developer',
+          current_company: 'Bishkek Tech',
+          experience_years: 2,
+          location: 'Бишкек',
+          skills: 'Python, Django, JavaScript, HTML, CSS',
+          summary: 'Молодой разработчик Python с опытом веб-разработки',
+          salary_min: 80000,
+          salary_max: 120000,
           is_imported: false,
-          last_synced_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+          last_synced_at: new Date().toISOString(),
           created_at: new Date().toISOString()
         }
       ];
       
       setCandidates(mockCandidates);
-    } catch (error) {
-      console.error('Ошибка загрузки кандидатов:', error);
-      message.error('Ошибка загрузки кандидатов');
     } finally {
       setLoading(false);
     }
@@ -158,8 +211,15 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
     try {
       setImporting(candidateId);
       
-      // Моковый импорт кандидата
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const importData = {
+        external_candidate_id: candidateId,
+        create_internal_user: true,
+        import_notes: `Импортирован из ${candidates.find(c => c.id === candidateId)?.platform}`
+      };
+      
+      console.log('Импортируем кандидата:', importData);
+      
+      await authAPI.importCandidate(importData);
       
       setCandidates(prev => prev.map(candidate => 
         candidate.id === candidateId 
@@ -168,9 +228,18 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
       ));
       
       message.success('Кандидат успешно импортирован');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка импорта кандидата:', error);
-      message.error('Ошибка импорта кандидата');
+      
+      // Более детальная обработка ошибок
+      if (error.response) {
+        const errorMessage = error.response.data?.message || error.response.data?.detail || 'Ошибка сервера';
+        message.error(`Ошибка импорта кандидата: ${errorMessage}`);
+      } else if (error.request) {
+        message.error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+      } else {
+        message.error(`Ошибка: ${error.message}`);
+      }
     } finally {
       setImporting(null);
     }
@@ -197,9 +266,13 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
   };
 
   const filteredCandidates = candidates.filter(candidate => {
-    const matchesSearch = candidate.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const fullName = `${candidate.first_name || ''} ${candidate.last_name || ''}`.toLowerCase();
+    const matchesSearch = !searchTerm || 
+                         fullName.includes(searchTerm.toLowerCase()) ||
                          candidate.current_position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         candidate.skills?.toLowerCase().includes(searchTerm.toLowerCase());
+                         (Array.isArray(candidate.skills) 
+                           ? candidate.skills.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
+                           : candidate.skills?.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesPlatform = platformFilter === 'all' || candidate.platform === platformFilter;
     
@@ -212,16 +285,226 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
 
   const platforms = Array.from(new Set(candidates.map(c => c.platform)));
 
+  const allSkills = Array.from(new Set(candidates.flatMap(c => {
+    if (!c.skills) return [];
+    // skills уже является массивом после исправления Pydantic схемы
+    return Array.isArray(c.skills) ? c.skills : c.skills.split(',').map(s => s.trim());
+  })));
+
+  const handleSearchResults = (newCandidates: ExternalCandidate[]) => {
+    setCandidates(newCandidates);
+    setShowSearchForm(false);
+  };
+
+  const handleSearchLoading = (loading: boolean) => {
+    setLoading(loading);
+  };
+
   return (
     <div>
-      {/* Фильтры */}
+      {/* Форма поиска */}
+      {showSearchForm && (
+        <div style={{ marginBottom: 16 }}>
+          <Card>
+            <Title level={4}>Поиск кандидатов в интеграциях</Title>
+            <Text type="secondary">
+              Найдите подходящих кандидатов на внешних платформах LinkedIn и Lalafo
+            </Text>
+            
+            <Form
+              layout="vertical"
+              onFinish={async (values) => {
+                try {
+                  setLoading(true);
+                  
+                  const searchParams = {
+                    platform: values.platform,
+                    keywords: values.keywords ? [values.keywords] : [],
+                    locations: values.locations ? [values.locations] : [],
+                    experience_min: values.experience_min,
+                    experience_max: values.experience_max,
+                    salary_min: values.salary_min,
+                    salary_max: values.salary_max,
+                    limit: values.limit || 50
+                  };
+
+                  console.log('Отправляем поиск кандидатов:', searchParams);
+                  
+                  const response = await authAPI.searchCandidates(searchParams);
+                  console.log('Ответ от API:', response.data);
+                  
+                  // Проверяем, что response.data является массивом
+                  const candidates = Array.isArray(response.data) ? response.data : [];
+                  setCandidates(candidates);
+                  setShowSearchForm(false);
+                  
+                  if (candidates.length > 0) {
+                    message.success(`Найдено ${candidates.length} кандидатов`);
+                  } else {
+                    message.info('Кандидаты не найдены. Попробуйте изменить параметры поиска.');
+                  }
+                } catch (error: any) {
+                  console.error('Ошибка поиска кандидатов:', error);
+                  
+                  // Более детальная обработка ошибок
+                  if (error.response) {
+                    // Сервер ответил с ошибкой
+                    const errorMessage = error.response.data?.message || error.response.data?.detail || 'Ошибка сервера';
+                    message.error(`Ошибка сервера: ${errorMessage}`);
+                  } else if (error.request) {
+                    // Запрос был отправлен, но ответа не получено
+                    message.error('Не удалось подключиться к серверу. Проверьте подключение к интернету.');
+                  } else {
+                    // Что-то пошло не так при настройке запроса
+                    message.error(`Ошибка: ${error.message}`);
+                  }
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              style={{ marginTop: 24 }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="platform"
+                    label="Платформа"
+                    rules={[{ required: true, message: 'Выберите платформу' }]}
+                  >
+                    <Select placeholder="Выберите платформу для поиска">
+                      <Option value="linkedin">LinkedIn</Option>
+                      <Option value="lalafo">Лалафо</Option>
+                      <Option value="hh_ru">HH.ru</Option>
+                      <Option value="superjob">SuperJob</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="limit"
+                    label="Количество результатов"
+                    initialValue={50}
+                  >
+                    <Select>
+                      <Option value={10}>10</Option>
+                      <Option value={25}>25</Option>
+                      <Option value={50}>50</Option>
+                      <Option value={100}>100</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="keywords"
+                    label="Ключевые слова"
+                  >
+                    <Input placeholder="Например: Python, React, DevOps" />
+                  </Form.Item>
+                </Col>
+                
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="locations"
+                    label="Локации"
+                  >
+                    <Input placeholder="Например: Москва, Бишкек" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="experience_min"
+                    label="Минимальный опыт (лет)"
+                  >
+                    <Select placeholder="Выберите минимальный опыт" allowClear>
+                      <Option value={0}>Без опыта</Option>
+                      <Option value={1}>1 год</Option>
+                      <Option value={2}>2 года</Option>
+                      <Option value={3}>3 года</Option>
+                      <Option value={5}>5 лет</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="experience_max"
+                    label="Максимальный опыт (лет)"
+                  >
+                    <Select placeholder="Выберите максимальный опыт" allowClear>
+                      <Option value={2}>2 года</Option>
+                      <Option value={3}>3 года</Option>
+                      <Option value={5}>5 лет</Option>
+                      <Option value={10}>10 лет</Option>
+                      <Option value={15}>15+ лет</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="salary_min"
+                    label="Минимальная зарплата (₽)"
+                  >
+                    <Input type="number" placeholder="Например: 100000" />
+                  </Form.Item>
+                </Col>
+                
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="salary_max"
+                    label="Максимальная зарплата (₽)"
+                  >
+                    <Input type="number" placeholder="Например: 300000" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item>
+                <Space>
+                  <Button type="primary" htmlType="submit" icon={<SearchOutlined />} size="large">
+                    Найти кандидатов
+                  </Button>
+                  <Button onClick={() => setShowSearchForm(false)}>
+                    Отмена
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Card>
+        </div>
+      )}
+
+      {/* Кнопка для открытия формы поиска */}
+      {!showSearchForm && (
+        <div style={{ marginBottom: 16, textAlign: 'center' }}>
+          <Button 
+            type="primary" 
+            icon={<SearchOutlined />}
+            onClick={() => setShowSearchForm(true)}
+            size="large"
+          >
+            Найти новых кандидатов в интеграциях
+          </Button>
+        </div>
+      )}
+      {/* Основные фильтры */}
       <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={8} md={6}>
             <Search
               placeholder="Поиск по имени или навыкам"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onSearch={loadCandidates}
               style={{ width: '100%' }}
             />
           </Col>
@@ -252,7 +535,92 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
               <Option value="not_imported">Не импортированы</Option>
             </Select>
           </Col>
+          <Col xs={24} sm={24} md={6}>
+            <Button 
+              icon={<FilterOutlined />}
+              onClick={() => setShowFilters(!showFilters)}
+              style={{ width: '100%' }}
+            >
+              {showFilters ? 'Скрыть фильтры' : 'Дополнительные фильтры'}
+            </Button>
+          </Col>
         </Row>
+
+        {/* Расширенные фильтры */}
+        {showFilters && (
+          <>
+            <Divider />
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12} md={8}>
+                <Text strong>Навыки</Text>
+                <Select
+                  mode="multiple"
+                  placeholder="Выберите навыки"
+                  value={selectedSkills}
+                  onChange={setSelectedSkills}
+                  style={{ width: '100%', marginTop: 8 }}
+                >
+                  {allSkills.map(skill => (
+                    <Option key={skill} value={skill}>{skill}</Option>
+                  ))}
+                </Select>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Text strong>Локация</Text>
+                <Input
+                  placeholder="Введите город"
+                  value={locationFilter}
+                  onChange={(e) => setLocationFilter(e.target.value)}
+                  style={{ marginTop: 8 }}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Text strong>Опыт работы: {experienceRange[0]} - {experienceRange[1]} лет</Text>
+                <Slider
+                  range
+                  min={0}
+                  max={15}
+                  value={experienceRange}
+                  onChange={(value) => setExperienceRange(value as [number, number])}
+                  style={{ marginTop: 8 }}
+                />
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Text strong>Зарплата: {salaryRange[0].toLocaleString()} - {salaryRange[1].toLocaleString()} ₽</Text>
+                <Slider
+                  range
+                  min={0}
+                  max={300000}
+                  step={10000}
+                  value={salaryRange}
+                  onChange={(value) => setSalaryRange(value as [number, number])}
+                  style={{ marginTop: 8 }}
+                />
+              </Col>
+            </Row>
+            <Row style={{ marginTop: 16 }}>
+              <Col>
+                <Space>
+                  <Button type="primary" onClick={loadCandidates}>
+                    Применить фильтры
+                  </Button>
+                  <Button onClick={() => {
+                    setSearchTerm('');
+                    setPlatformFilter('all');
+                    setImportedFilter('all');
+                    setSelectedSkills([]);
+                    setExperienceRange([0, 15]);
+                    setSalaryRange([0, 300000]);
+                    setLocationFilter('');
+                    loadCandidates();
+                  }}>
+                    Сбросить
+                  </Button>
+                </Space>
+              </Col>
+            </Row>
+          </>
+        )}
       </Card>
 
       {/* Список кандидатов */}
@@ -298,11 +666,16 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                           <div>
                             <Title level={4} style={{ margin: 0 }}>
-                              {candidate.full_name}
+                              {candidate.first_name} {candidate.last_name}
                             </Title>
-                            <Tag color={candidate.is_imported ? 'green' : 'orange'}>
-                              {candidate.is_imported ? 'Импортирован' : 'Не импортирован'}
-                            </Tag>
+                            <Space wrap style={{ marginTop: 4 }}>
+                              <Tag color={candidate.is_imported ? 'green' : 'orange'}>
+                                {candidate.is_imported ? 'Импортирован' : 'Не импортирован'}
+                              </Tag>
+                              <Tag color={getPlatformColor(candidate.platform)}>
+                                {getPlatformName(candidate.platform)}
+                              </Tag>
+                            </Space>
                           </div>
                         </div>
 
@@ -326,16 +699,26 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
                         <div style={{ marginBottom: 8 }}>
                           <Text strong>Навыки: </Text>
                           <Space wrap>
-                            {candidate.skills?.split(',').slice(0, 5).map(skill => (
-                              <Tag key={skill.trim()}>
-                                {skill.trim()}
-                              </Tag>
-                            ))}
-                            {candidate.skills && candidate.skills.split(',').length > 5 && (
-                              <Tag>
-                                +{candidate.skills.split(',').length - 5} еще
-                              </Tag>
-                            )}
+                            {(() => {
+                              const skillsArray = Array.isArray(candidate.skills) 
+                                ? candidate.skills 
+                                : candidate.skills?.split(',').map(s => s.trim()) || [];
+                              
+                              return (
+                                <>
+                                  {skillsArray.slice(0, 5).map(skill => (
+                                    <Tag key={skill}>
+                                      {skill}
+                                    </Tag>
+                                  ))}
+                                  {skillsArray.length > 5 && (
+                                    <Tag>
+                                      +{skillsArray.length - 5} еще
+                                    </Tag>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </Space>
                         </div>
 
@@ -415,7 +798,7 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
             <Avatar size={48} icon={<UserOutlined />} />
             <div style={{ marginLeft: 12 }}>
               <Title level={4} style={{ margin: 0 }}>
-                {selectedCandidate?.full_name}
+                {selectedCandidate?.first_name} {selectedCandidate?.last_name}
               </Title>
               <Text type="secondary">{selectedCandidate?.current_position || 'Не указано'}</Text>
             </div>
@@ -480,12 +863,23 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
               <Col span={24}>
                 <Title level={5}>Навыки</Title>
                 <Space wrap>
-                  {selectedCandidate.skills?.split(',').map(skill => (
-                    <Tag key={skill.trim()}>
-                      {skill.trim()}
-                    </Tag>
-                  ))}
+                  {(() => {
+                    const skillsArray = Array.isArray(selectedCandidate.skills) 
+                      ? selectedCandidate.skills 
+                      : selectedCandidate.skills?.split(',').map(s => s.trim()) || [];
+                    
+                    return skillsArray.map(skill => (
+                      <Tag key={skill}>
+                        {skill}
+                      </Tag>
+                    ));
+                  })()}
                 </Space>
+              </Col>
+
+              <Col span={24}>
+                <Title level={5}>Резюме</Title>
+                <Text>{selectedCandidate.summary || 'Не указано'}</Text>
               </Col>
 
               <Col span={24}>
@@ -505,6 +899,14 @@ const ExternalCandidatesList: React.FC<ExternalCandidatesListProps> = ({ integra
                       onClick={() => window.open(selectedCandidate.github_url, '_blank')}
                     >
                       GitHub
+                    </Button>
+                  )}
+                  {selectedCandidate.profile_url && (
+                    <Button 
+                      icon={<LinkOutlined />} 
+                      onClick={() => window.open(selectedCandidate.profile_url, '_blank')}
+                    >
+                      Профиль на {getPlatformName(selectedCandidate.platform)}
                     </Button>
                   )}
                 </Space>

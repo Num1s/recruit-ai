@@ -94,6 +94,12 @@ def get_current_senior_or_lead(current_user: User = Depends(get_current_active_u
         raise AuthorizationError("Доступ только для старших рекрутеров и главных рекрутеров")
     return current_user
 
+def get_current_stream_manager(current_user: User = Depends(get_current_active_user)) -> User:
+    """Получение пользователя с правами управления потоками"""
+    if current_user.role not in [UserRole.SENIOR_RECRUITER, UserRole.RECRUIT_LEAD, UserRole.ADMIN, UserRole.COMPANY]:
+        raise AuthorizationError("Доступ только для управляющих потоками")
+    return current_user
+
 def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db)

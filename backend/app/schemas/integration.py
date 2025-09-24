@@ -62,6 +62,17 @@ class ExternalCandidate(ExternalCandidateBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
+    @validator('skills', pre=True)
+    def parse_skills(cls, v):
+        """Парсинг навыков из JSON строки"""
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v
+    
     class Config:
         from_attributes = True
 
@@ -70,9 +81,9 @@ class PlatformIntegrationBase(BaseModel):
     platform: IntegrationPlatform
     name: str
     description: Optional[str] = None
-    is_active: bool = False
-    auto_sync: bool = True
-    sync_interval_hours: int = 24
+    is_active: Optional[bool] = False
+    auto_sync: Optional[bool] = True
+    sync_interval_hours: Optional[int] = 24
     search_keywords: Optional[List[str]] = None
     search_locations: Optional[List[str]] = None
     search_experience_min: Optional[int] = None
@@ -109,12 +120,12 @@ class PlatformIntegration(PlatformIntegrationBase):
     """Схема интеграции для ответа"""
     id: int
     status: IntegrationStatus
-    total_candidates_found: int
-    total_candidates_imported: int
+    total_candidates_found: Optional[int] = 0
+    total_candidates_imported: Optional[int] = 0
     last_sync_at: Optional[datetime] = None
     next_sync_at: Optional[datetime] = None
     last_error: Optional[str] = None
-    error_count: int
+    error_count: Optional[int] = 0
     created_by: int
     created_at: datetime
     updated_at: Optional[datetime] = None

@@ -45,7 +45,7 @@ async def get_integrations(
     """Получение списка всех интеграций"""
     
     service = IntegrationService(db)
-    return await service.get_integrations()
+    return service.get_integrations()
 
 @router.get("/{integration_id}", response_model=PlatformIntegration)
 async def get_integration(
@@ -56,7 +56,7 @@ async def get_integration(
     """Получение интеграции по ID"""
     
     service = IntegrationService(db)
-    return await service.get_integration(integration_id)
+    return service.get_integration(integration_id)
 
 @router.put("/{integration_id}", response_model=PlatformIntegration)
 async def update_integration(
@@ -99,15 +99,34 @@ async def search_candidates(
 async def get_external_candidates(
     platform: Optional[IntegrationPlatform] = None,
     is_imported: Optional[bool] = None,
+    search: Optional[str] = None,
+    skills: Optional[str] = None,
+    experience_min: Optional[int] = None,
+    experience_max: Optional[int] = None,
+    salary_min: Optional[int] = None,
+    salary_max: Optional[int] = None,
+    location: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
     current_user: User = Depends(get_current_recruiter_or_above),
     db: Session = Depends(get_db)
 ) -> Any:
-    """Получение списка внешних кандидатов"""
+    """Получение списка внешних кандидатов с расширенной фильтрацией"""
     
     service = IntegrationService(db)
-    return await service.get_external_candidates(platform, is_imported, limit, offset)
+    return await service.get_external_candidates(
+        platform=platform,
+        is_imported=is_imported,
+        search=search,
+        skills=skills,
+        experience_min=experience_min,
+        experience_max=experience_max,
+        salary_min=salary_min,
+        salary_max=salary_max,
+        location=location,
+        limit=limit,
+        offset=offset
+    )
 
 @router.get("/candidates/{candidate_id}", response_model=ExternalCandidate)
 async def get_external_candidate(

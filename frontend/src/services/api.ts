@@ -469,6 +469,13 @@ class APIService {
   async getExternalCandidates(params?: {
     platform?: string;
     is_imported?: boolean;
+    search?: string;
+    skills?: string;
+    experience_min?: number;
+    experience_max?: number;
+    salary_min?: number;
+    salary_max?: number;
+    location?: string;
     limit?: number;
     offset?: number;
   }): Promise<AxiosResponse> {

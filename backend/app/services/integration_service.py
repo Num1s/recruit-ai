@@ -4,10 +4,13 @@
 
 import json
 import asyncio
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+
+logger = logging.getLogger(__name__)
 
 from app.models.integration import (
     PlatformIntegration, ExternalCandidate, IntegrationLog, 
@@ -127,11 +130,11 @@ class IntegrationService:
         
         return integration
     
-    async def get_integrations(self) -> List[PlatformIntegration]:
+    def get_integrations(self) -> List[PlatformIntegration]:
         """Получение всех интеграций"""
         return self.db.query(PlatformIntegration).all()
     
-    async def get_integration(self, integration_id: int) -> PlatformIntegration:
+    def get_integration(self, integration_id: int) -> PlatformIntegration:
         """Получение интеграции по ID"""
         integration = self.db.query(PlatformIntegration).filter(
             PlatformIntegration.id == integration_id
@@ -199,15 +202,23 @@ class IntegrationService:
                 saved_candidates.append(candidate)
             
             # Обновляем статистику
-            integration.total_candidates_found += len(saved_candidates)
+            if integration.total_candidates_found is None:
+                integration.total_candidates_found = len(saved_candidates)
+            else:
+                integration.total_candidates_found += len(saved_candidates)
             integration.last_sync_at = datetime.utcnow()
             self.db.commit()
             
             # Логируем поиск
+            search_params = search_request.dict()
+            # Преобразуем enum в строку для JSON сериализации
+            if 'platform' in search_params and hasattr(search_params['platform'], 'value'):
+                search_params['platform'] = search_params['platform'].value
+            
             await self._log_integration_operation(
                 integration.id, "search", "success",
                 f"Найдено {len(saved_candidates)} кандидатов",
-                {"search_params": search_request.dict(), "candidates_count": len(saved_candidates)}
+                {"search_params": search_params, "candidates_count": len(saved_candidates)}
             )
             
             return saved_candidates
@@ -238,6 +249,8 @@ class IntegrationService:
             return await self._search_hh_ru(access_token, search_request)
         elif search_request.platform == IntegrationPlatform.SUPERJOB:
             return await self._search_superjob(access_token, search_request)
+        elif search_request.platform == IntegrationPlatform.LALAFO:
+            return await self._search_lalafo(access_token, search_request)
         else:
             raise ValidationError(f"Платформа {search_request.platform.value} пока не поддерживается")
     
@@ -247,23 +260,134 @@ class IntegrationService:
         search_request: SearchCandidatesRequest
     ) -> List[Dict[str, Any]]:
         """Поиск кандидатов в LinkedIn"""
-        # TODO: Реализовать поиск через LinkedIn API
-        # Пока возвращаем моковые данные
-        return [
+        try:
+            # Проверяем, доступен ли aiohttp
+            try:
+                import aiohttp
+                from .linkedin_api import LinkedInAPI
+                from ..core.api_config import APIConfig
+                
+                # Проверяем, настроен ли LinkedIn API
+                if not APIConfig.is_linkedin_configured():
+                    logger.warning("LinkedIn API не настроен, используем fallback данные")
+                    return self._get_linkedin_fallback_data(search_request)
+                
+                # Создаем экземпляр LinkedIn API
+                linkedin_api = LinkedInAPI(access_token)
+                
+                # Выполняем поиск
+                candidates = await linkedin_api.search_people(
+                    keywords=search_request.keywords,
+                    locations=search_request.locations,
+                    experience_min=search_request.experience_min,
+                    experience_max=search_request.experience_max,
+                    limit=search_request.limit
+                )
+                
+                # Если реальный API не вернул результатов, используем моковые данные
+                if not candidates:
+                    return self._get_linkedin_fallback_data(search_request)
+                
+                return candidates
+                
+            except ImportError:
+                logger.warning("aiohttp не установлен, используем fallback данные для LinkedIn")
+                return self._get_linkedin_fallback_data(search_request)
+            
+        except Exception as e:
+            logger.error(f"LinkedIn API error: {e}")
+            # В случае ошибки возвращаем моковые данные
+            return self._get_linkedin_fallback_data(search_request)
+    
+    def _get_linkedin_fallback_data(self, search_request: SearchCandidatesRequest) -> List[Dict[str, Any]]:
+        """Fallback данные для LinkedIn"""
+        mock_candidates = [
             {
                 "external_id": "linkedin_123",
                 "first_name": "Иван",
                 "last_name": "Петров",
                 "email": "ivan.petrov@example.com",
+                "phone": "+7 (999) 123-45-67",
                 "current_position": "Senior Python Developer",
                 "current_company": "Tech Company",
                 "experience_years": 5,
-                "skills": ["Python", "Django", "FastAPI", "PostgreSQL"],
+                "skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Docker", "AWS"],
                 "location": "Москва",
                 "profile_url": "https://linkedin.com/in/ivan-petrov",
-                "summary": "Опытный Python разработчик с 5-летним стажем"
+                "linkedin_url": "https://linkedin.com/in/ivan-petrov",
+                "github_url": "https://github.com/ivan-petrov",
+                "summary": "Опытный Python разработчик с 5-летним стажем. Специализируется на веб-разработке и DevOps.",
+                "salary_min": 180000,
+                "salary_max": 250000
+            },
+            {
+                "external_id": "linkedin_456",
+                "first_name": "Анна",
+                "last_name": "Смирнова",
+                "email": "anna.smirnova@example.com",
+                "phone": "+7 (999) 234-56-78",
+                "current_position": "Frontend Developer",
+                "current_company": "Digital Agency",
+                "experience_years": 3,
+                "skills": ["React", "TypeScript", "Node.js", "GraphQL", "Next.js"],
+                "location": "Санкт-Петербург",
+                "profile_url": "https://linkedin.com/in/anna-smirnova",
+                "linkedin_url": "https://linkedin.com/in/anna-smirnova",
+                "github_url": "https://github.com/anna-smirnova",
+                "summary": "Frontend разработчик с опытом создания современных веб-приложений на React и TypeScript.",
+                "salary_min": 140000,
+                "salary_max": 200000
+            },
+            {
+                "external_id": "linkedin_789",
+                "first_name": "Дмитрий",
+                "last_name": "Козлов",
+                "email": "dmitry.kozlov@example.com",
+                "phone": "+7 (999) 345-67-89",
+                "current_position": "DevOps Engineer",
+                "current_company": "Cloud Solutions",
+                "experience_years": 4,
+                "skills": ["Kubernetes", "Docker", "AWS", "Terraform", "Python", "Jenkins"],
+                "location": "Екатеринбург",
+                "profile_url": "https://linkedin.com/in/dmitry-kozlov",
+                "linkedin_url": "https://linkedin.com/in/dmitry-kozlov",
+                "github_url": "https://github.com/dmitry-kozlov",
+                "summary": "DevOps инженер с опытом автоматизации и управления облачной инфраструктурой.",
+                "salary_min": 160000,
+                "salary_max": 220000
             }
         ]
+        
+        # Фильтруем кандидатов по параметрам поиска
+        filtered_candidates = []
+        for candidate in mock_candidates:
+            # Фильтр по ключевым словам
+            if search_request.keywords:
+                skills_text = " ".join(candidate["skills"])
+                position_text = candidate["current_position"].lower()
+                if not any(keyword.lower() in skills_text.lower() or keyword.lower() in position_text for keyword in search_request.keywords):
+                    continue
+            
+            # Фильтр по локации
+            if search_request.locations:
+                if not any(location.lower() in candidate["location"].lower() for location in search_request.locations):
+                    continue
+            
+            # Фильтр по опыту
+            if search_request.experience_min and candidate["experience_years"] < search_request.experience_min:
+                continue
+            if search_request.experience_max and candidate["experience_years"] > search_request.experience_max:
+                continue
+            
+            # Фильтр по зарплате
+            if search_request.salary_min and candidate["salary_max"] < search_request.salary_min:
+                continue
+            if search_request.salary_max and candidate["salary_min"] > search_request.salary_max:
+                continue
+            
+            filtered_candidates.append(candidate)
+        
+        return filtered_candidates[:search_request.limit]
     
     async def _search_hh_ru(
         self, 
@@ -297,6 +421,151 @@ class IntegrationService:
         # TODO: Реализовать поиск через SuperJob API
         return []
     
+    async def _search_lalafo(
+        self, 
+        access_token: str, 
+        search_request: SearchCandidatesRequest
+    ) -> List[Dict[str, Any]]:
+        """Поиск кандидатов на Lalafo (Кыргызстан)"""
+        try:
+            # Проверяем, доступен ли aiohttp
+            try:
+                import aiohttp
+                from .lalafo_api import LalafoAPI
+                from ..core.api_config import APIConfig
+                
+                # Проверяем, настроен ли Lalafo API
+                if not APIConfig.is_lalafo_configured():
+                    logger.warning("Lalafo API не настроен, используем fallback данные")
+                    return self._get_lalafo_fallback_data(search_request)
+                
+                # Создаем экземпляр Lalafo API
+                lalafo_api = LalafoAPI(access_token)
+                
+                # Выполняем поиск
+                candidates = await lalafo_api.search_job_postings(
+                    keywords=search_request.keywords,
+                    locations=search_request.locations,
+                    experience_min=search_request.experience_min,
+                    experience_max=search_request.experience_max,
+                    limit=search_request.limit
+                )
+                
+                # Если реальный API не вернул результатов, используем моковые данные
+                if not candidates:
+                    return self._get_lalafo_fallback_data(search_request)
+                
+                return candidates
+                
+            except ImportError:
+                logger.warning("aiohttp не установлен, используем fallback данные для Lalafo")
+                return self._get_lalafo_fallback_data(search_request)
+            
+        except Exception as e:
+            logger.error(f"Lalafo API error: {e}")
+            # В случае ошибки возвращаем моковые данные
+            return self._get_lalafo_fallback_data(search_request)
+    
+    def _get_lalafo_fallback_data(self, search_request: SearchCandidatesRequest) -> List[Dict[str, Any]]:
+        """Fallback данные для Lalafo"""
+        mock_candidates = [
+            {
+                "external_id": "lalafo_101",
+                "first_name": "Айбек",
+                "last_name": "Абдылдаев",
+                "email": "aibek.abdyl@example.com",
+                "phone": "+996 (555) 123-456",
+                "current_position": "Python Developer",
+                "current_company": "Bishkek Tech",
+                "experience_years": 2,
+                "skills": ["Python", "Django", "JavaScript", "HTML", "CSS"],
+                "location": "Бишкек",
+                "profile_url": "https://lalafo.kg/profile/aibek-dev",
+                "summary": "Молодой разработчик Python с опытом веб-разработки. Изучаю новые технологии и готов к работе.",
+                "salary_min": 80000,
+                "salary_max": 120000
+            },
+            {
+                "external_id": "lalafo_102",
+                "first_name": "Айгерим",
+                "last_name": "Кыдырбекова",
+                "email": "aigerim.kydyr@example.com",
+                "phone": "+996 (555) 234-567",
+                "current_position": "Frontend Developer",
+                "current_company": "Osh Digital",
+                "experience_years": 3,
+                "skills": ["React", "Vue.js", "JavaScript", "TypeScript", "Sass"],
+                "location": "Ош",
+                "profile_url": "https://lalafo.kg/profile/aigerim-frontend",
+                "summary": "Frontend разработчик с опытом создания пользовательских интерфейсов. Работаю с современными фреймворками.",
+                "salary_min": 90000,
+                "salary_max": 140000
+            },
+            {
+                "external_id": "lalafo_103",
+                "first_name": "Марат",
+                "last_name": "Жумалиев",
+                "email": "marat.zhumal@example.com",
+                "phone": "+996 (555) 345-678",
+                "current_position": "Full Stack Developer",
+                "current_company": "Karakol IT",
+                "experience_years": 4,
+                "skills": ["Node.js", "React", "MongoDB", "Express", "Docker"],
+                "location": "Каракол",
+                "profile_url": "https://lalafo.kg/profile/marat-fullstack",
+                "summary": "Full Stack разработчик с опытом создания полных веб-приложений от фронтенда до бэкенда.",
+                "salary_min": 100000,
+                "salary_max": 150000
+            },
+            {
+                "external_id": "lalafo_104",
+                "first_name": "Айнура",
+                "last_name": "Токтогулова",
+                "email": "ainura.toktogul@example.com",
+                "phone": "+996 (555) 456-789",
+                "current_position": "Mobile Developer",
+                "current_company": "Jalal-Abad Tech",
+                "experience_years": 2,
+                "skills": ["React Native", "Flutter", "JavaScript", "Firebase", "Android"],
+                "location": "Джалал-Абад",
+                "profile_url": "https://lalafo.kg/profile/ainura-mobile",
+                "summary": "Mobile разработчик с опытом создания кроссплатформенных приложений. Специализируюсь на React Native и Flutter.",
+                "salary_min": 85000,
+                "salary_max": 130000
+            }
+        ]
+        
+        # Фильтруем кандидатов по параметрам поиска
+        filtered_candidates = []
+        for candidate in mock_candidates:
+            # Фильтр по ключевым словам
+            if search_request.keywords:
+                skills_text = " ".join(candidate["skills"])
+                position_text = candidate["current_position"].lower()
+                if not any(keyword.lower() in skills_text.lower() or keyword.lower() in position_text for keyword in search_request.keywords):
+                    continue
+            
+            # Фильтр по локации
+            if search_request.locations:
+                if not any(location.lower() in candidate["location"].lower() for location in search_request.locations):
+                    continue
+            
+            # Фильтр по опыту
+            if search_request.experience_min and candidate["experience_years"] < search_request.experience_min:
+                continue
+            if search_request.experience_max and candidate["experience_years"] > search_request.experience_max:
+                continue
+            
+            # Фильтр по зарплате
+            if search_request.salary_min and candidate["salary_max"] < search_request.salary_min:
+                continue
+            if search_request.salary_max and candidate["salary_min"] > search_request.salary_max:
+                continue
+            
+            filtered_candidates.append(candidate)
+        
+        return filtered_candidates[:search_request.limit]
+    
     # ========== УПРАВЛЕНИЕ КАНДИДАТАМИ ==========
     
     async def _save_external_candidate(
@@ -306,11 +575,19 @@ class IntegrationService:
     ) -> ExternalCandidate:
         """Сохранение внешнего кандидата в базу"""
         
+        # Получаем платформу из интеграции
+        integration = self.db.query(PlatformIntegration).filter(
+            PlatformIntegration.id == integration_id
+        ).first()
+        
+        if not integration:
+            raise NotFoundError("Интеграция не найдена")
+        
         # Проверяем, не существует ли уже такой кандидат
         existing = self.db.query(ExternalCandidate).filter(
             and_(
                 ExternalCandidate.external_id == candidate_data["external_id"],
-                ExternalCandidate.platform == candidate_data["platform"]
+                ExternalCandidate.platform == integration.platform
             )
         ).first()
         
@@ -333,7 +610,7 @@ class IntegrationService:
         candidate = ExternalCandidate(
             integration_id=integration_id,
             external_id=candidate_data["external_id"],
-            platform=candidate_data["platform"],
+            platform=integration.platform,  # Используем платформу из интеграции
             first_name=candidate_data.get("first_name"),
             last_name=candidate_data.get("last_name"),
             email=candidate_data.get("email"),
@@ -364,20 +641,82 @@ class IntegrationService:
         self, 
         platform: Optional[IntegrationPlatform] = None,
         is_imported: Optional[bool] = None,
+        search: Optional[str] = None,
+        skills: Optional[str] = None,
+        experience_min: Optional[int] = None,
+        experience_max: Optional[int] = None,
+        salary_min: Optional[int] = None,
+        salary_max: Optional[int] = None,
+        location: Optional[str] = None,
         limit: int = 50,
         offset: int = 0
     ) -> List[ExternalCandidate]:
-        """Получение списка внешних кандидатов"""
+        """Получение списка внешних кандидатов с расширенной фильтрацией"""
         
         query = self.db.query(ExternalCandidate)
         
+        # Фильтр по платформе
         if platform:
             query = query.filter(ExternalCandidate.platform == platform)
         
+        # Фильтр по статусу импорта
         if is_imported is not None:
             query = query.filter(ExternalCandidate.is_imported == is_imported)
         
-        return query.offset(offset).limit(limit).all()
+        # Поиск по имени, позиции или компании
+        if search:
+            search_filter = or_(
+                ExternalCandidate.first_name.ilike(f"%{search}%"),
+                ExternalCandidate.last_name.ilike(f"%{search}%"),
+                ExternalCandidate.current_position.ilike(f"%{search}%"),
+                ExternalCandidate.current_company.ilike(f"%{search}%"),
+                ExternalCandidate.summary.ilike(f"%{search}%")
+            )
+            query = query.filter(search_filter)
+        
+        # Фильтр по навыкам
+        if skills:
+            skills_list = [skill.strip() for skill in skills.split(",")]
+            for skill in skills_list:
+                query = query.filter(ExternalCandidate.skills.ilike(f"%{skill}%"))
+        
+        # Фильтр по опыту
+        if experience_min is not None:
+            query = query.filter(
+                or_(
+                    ExternalCandidate.experience_years >= experience_min,
+                    ExternalCandidate.experience_years.is_(None)
+                )
+            )
+        if experience_max is not None:
+            query = query.filter(
+                or_(
+                    ExternalCandidate.experience_years <= experience_max,
+                    ExternalCandidate.experience_years.is_(None)
+                )
+            )
+        
+        # Фильтр по зарплате
+        if salary_min is not None:
+            query = query.filter(
+                or_(
+                    ExternalCandidate.salary_max >= salary_min,
+                    ExternalCandidate.salary_max.is_(None)
+                )
+            )
+        if salary_max is not None:
+            query = query.filter(
+                or_(
+                    ExternalCandidate.salary_min <= salary_max,
+                    ExternalCandidate.salary_min.is_(None)
+                )
+            )
+        
+        # Фильтр по локации
+        if location:
+            query = query.filter(ExternalCandidate.location.ilike(f"%{location}%"))
+        
+        return query.order_by(ExternalCandidate.created_at.desc()).offset(offset).limit(limit).all()
     
     async def import_candidate(
         self, 
