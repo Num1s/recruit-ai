@@ -13,7 +13,7 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>Recruit.ai - HR-платформа</title>
     
-    <!-- Блокировка нежелательных трекинг-запросов -->
+    <!-- Блокировка нежелательных трекинг-запросов и внешних скриптов -->
     <script>
       // Блокируем запросы к autotrack.studyquicks.com
       if (typeof window !== 'undefined') {
@@ -33,6 +33,34 @@
             return;
           }
           return originalXHROpen.call(this, method, url);
+        };
+
+        // Блокируем загрузку внешних скриптов с подозрительными именами
+        const originalCreateElement = document.createElement;
+        document.createElement = function(tagName) {
+          const element = originalCreateElement.call(this, tagName);
+          if (tagName.toLowerCase() === 'script') {
+            const originalSrcSetter = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, 'src')?.set;
+            if (originalSrcSetter) {
+              Object.defineProperty(element, 'src', {
+                set: function(value) {
+                  if (typeof value === 'string' && (
+                    value.includes('chromeos-questionnaire') ||
+                    value.includes('autotrack') ||
+                    value.includes('studyquicks')
+                  )) {
+                    console.warn('Блокирована загрузка скрипта:', value);
+                    return;
+                  }
+                  originalSrcSetter.call(this, value);
+                },
+                get: function() {
+                  return this.getAttribute('src');
+                }
+              });
+            }
+          }
+          return element;
         };
       }
     </script>

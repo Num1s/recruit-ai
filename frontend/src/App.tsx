@@ -4,6 +4,23 @@ import { ConfigProvider, theme } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 import './App.css';
 
+// Глобальная обработка ошибок
+window.addEventListener('error', (event) => {
+  if (event.filename && event.filename.includes('chromeos-questionnaire')) {
+    console.warn('Блокирована ошибка от внешнего скрипта:', event.filename);
+    event.preventDefault();
+    return false;
+  }
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.toString().includes('chromeos-questionnaire')) {
+    console.warn('Блокировано отклоненное обещание от внешнего скрипта:', event.reason);
+    event.preventDefault();
+    return false;
+  }
+});
+
 // Components
 import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
 import ProtectedRoute from './components/common/ProtectedRoute.tsx';

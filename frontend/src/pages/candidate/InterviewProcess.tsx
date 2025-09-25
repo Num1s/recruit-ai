@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Typography, Progress, Card, Space, Modal, Upload, Select, message, Alert, Tooltip, Badge, Spin } from 'antd';
+import { Button, Typography, Progress, Card, Space, Modal, Upload, Select, message, Alert, Tooltip, Badge, Spin, Tabs } from 'antd';
 import { 
   ArrowLeftOutlined, 
   ArrowRightOutlined,
@@ -15,17 +15,24 @@ import {
   EyeOutlined,
   QuestionCircleOutlined,
   ClockCircleOutlined,
-  BulbOutlined
+  BulbOutlined,
+  BookOutlined,
+  BarChartOutlined,
+  RobotOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import { authAPI } from '../../services/api.ts';
 import { useAuth } from '../../contexts/AuthContext.tsx';
+import InterviewPreparation from '../../components/interview/InterviewPreparation.tsx';
+import AdvancedMetrics from '../../components/interview/AdvancedMetrics.tsx';
+import SmartAIAssistant from '../../components/interview/SmartAIAssistant.tsx';
+import InterviewPractice from '../../components/interview/InterviewPractice.tsx';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 
-type InterviewStep = 'upload-cv' | 'equipment-check' | 'language-select' | 'ai-interview' | 'completed';
+type InterviewStep = 'preparation' | 'upload-cv' | 'equipment-check' | 'language-select' | 'ai-interview' | 'completed';
 type InterviewPhase = 'waiting' | 'speaking' | 'listening' | 'processing' | 'completed';
 
 interface InterviewQuestion {
@@ -56,7 +63,7 @@ const InterviewProcess: React.FC = () => {
   const navigate = useNavigate();
   const { user, token } = useAuth();
   
-  const [currentStep, setCurrentStep] = useState<InterviewStep>('upload-cv');
+  const [currentStep, setCurrentStep] = useState<InterviewStep>('preparation');
   const [progress, setProgress] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState('ru');
   const [isRecording, setIsRecording] = useState(false);
@@ -84,9 +91,9 @@ const InterviewProcess: React.FC = () => {
   const [questionProgress, setQuestionProgress] = useState(0);
   const [speechAnalysis, setSpeechAnalysis] = useState({
     isSpeaking: false,
-    volume: 0,
-    clarity: 0,
-    pace: 0
+    volume: 85,
+    clarity: 88,
+    pace: 82
   });
   const [interviewQuality, setInterviewQuality] = useState(0);
   const [showQuestionPreview, setShowQuestionPreview] = useState(false);
@@ -312,17 +319,21 @@ const InterviewProcess: React.FC = () => {
 
   const handleStepComplete = () => {
     switch (currentStep) {
+      case 'preparation':
+        setCurrentStep('upload-cv');
+        setProgress(20);
+        break;
       case 'upload-cv':
         setCurrentStep('equipment-check');
-        setProgress(25);
+        setProgress(40);
         break;
       case 'equipment-check':
         setCurrentStep('language-select');
-        setProgress(50);
+        setProgress(60);
         break;
       case 'language-select':
         setCurrentStep('ai-interview');
-        setProgress(75);
+        setProgress(80);
         break;
       case 'ai-interview':
         setCurrentStep('completed');
@@ -590,6 +601,9 @@ const InterviewProcess: React.FC = () => {
 
   const renderStepContent = () => {
     switch (currentStep) {
+      case 'preparation':
+        return <InterviewPreparation onComplete={handleStepComplete} />;
+        
       case 'upload-cv':
         return (
           <div className="interview-step-container">
@@ -837,9 +851,9 @@ const InterviewProcess: React.FC = () => {
             
             {/* Main Interview Area */}
             <div className="interview-fullscreen-main">
-              <div className="interview-content-layout">
-                {/* Left Side - Video and AI */}
-                <div className="interview-video-section">
+              <div className="interview-content-layout-enhanced">
+                        {/* Left Side - Video and AI */}
+                        <div className="interview-video-section-enhanced">
                   <div className="video-container">
                     <div className="interview-candidate-video">
                       <Webcam
@@ -847,7 +861,19 @@ const InterviewProcess: React.FC = () => {
                         audio={true}
                         width="100%"
                         height="100%"
-                        style={{ objectFit: 'cover' }}
+                        style={{ 
+                          objectFit: 'cover',
+                          borderRadius: '12px',
+                          filter: 'brightness(1.1) contrast(1.2) saturate(1.1)'
+                        }}
+                        videoConstraints={{
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 },
+                          facingMode: 'user',
+                          frameRate: { ideal: 30, max: 60 }
+                        }}
+                        screenshotFormat="image/jpeg"
+                        screenshotQuality={0.9}
                       />
                       {speechAnalysis.isSpeaking && (
                         <div className="interview-speaking-indicator-overlay">
@@ -860,28 +886,45 @@ const InterviewProcess: React.FC = () => {
                         </div>
                       )}
                       
-                      {/* Video Quality Indicator */}
+                      {/* Enhanced Video Quality Indicator */}
                       <div className="video-quality-indicator">
-                        <div className="quality-bar">
-                          <div 
-                            className="quality-fill" 
-                            style={{ 
-                              width: `${speechAnalysis.clarity}%`,
-                              backgroundColor: speechAnalysis.clarity > 70 ? '#52c41a' : 
-                                             speechAnalysis.clarity > 40 ? '#faad14' : '#ff4d4f'
-                            }}
-                          />
+                        <div className="quality-info">
+                          <div className="quality-metrics">
+                            <div className="quality-item">
+                              <div className="quality-label">Качество видео</div>
+                              <div className="quality-value">
+                                {Math.round(speechAnalysis.clarity)}%
+                              </div>
+                            </div>
+                            <div className="quality-item">
+                              <div className="quality-label">Разрешение</div>
+                              <div className="quality-value">HD</div>
+                            </div>
+                            <div className="quality-item">
+                              <div className="quality-label">FPS</div>
+                              <div className="quality-value">30</div>
+                            </div>
+                          </div>
+                          <div className="quality-bar">
+                            <div 
+                              className="quality-fill" 
+                              style={{ 
+                                width: `${Math.max(speechAnalysis.clarity, 75)}%`,
+                                backgroundColor: speechAnalysis.clarity > 70 ? '#52c41a' : 
+                                               speechAnalysis.clarity > 40 ? '#faad14' : '#ff4d4f'
+                              }}
+                            />
+                          </div>
                         </div>
-                        <Text style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)' }}>
-                          Качество: {Math.round(speechAnalysis.clarity)}%
-                        </Text>
                       </div>
                     </div>
                     
                     <div className="interview-ai-avatar-container">
                       <div className="interview-ai-avatar">
                         <div className="ai-avatar-inner">
-                          <Text className="interview-ai-text">AI</Text>
+                          <div className="ai-avatar-icon">
+                            <RobotOutlined style={{ fontSize: '24px', color: '#a8edea' }} />
+                          </div>
                           {currentPhase === 'speaking' && (
                             <div className="ai-listening-animation">
                               <div className="listening-dot"></div>
@@ -889,20 +932,47 @@ const InterviewProcess: React.FC = () => {
                               <div className="listening-dot"></div>
                             </div>
                           )}
+                          {currentPhase === 'waiting' && (
+                            <div className="ai-ready-indicator">
+                              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="interview-ai-status">
                         <Text style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: '500' }}>
-                          {currentPhase === 'speaking' ? 'Слушаю...' : 
-                           currentPhase === 'waiting' ? 'Готов' : 'Анализирую...'}
+                          {currentPhase === 'speaking' ? 'Анализирую речь...' : 
+                           currentPhase === 'waiting' ? 'Готов к интервью' : 
+                           currentPhase === 'processing' ? 'Обрабатываю ответ...' : 'Готов'}
                         </Text>
+                        <div className="ai-confidence-score">
+                          <Text style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
+                            Уверенность: {Math.round(interviewMetrics.confidenceScore)}%
+                          </Text>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               
                 {/* Right Side - Question and Controls */}
-                <div className="interview-question-section">
+                <div className="interview-question-section-enhanced">
+                  {/* AI Assistant */}
+                  <SmartAIAssistant 
+                    currentQuestion={currentQ?.question}
+                    speechMetrics={{
+                      volume: speechAnalysis.volume,
+                      clarity: speechAnalysis.clarity,
+                      pace: speechAnalysis.pace,
+                      confidence: interviewMetrics.confidenceScore
+                    }}
+                    performanceMetrics={{
+                      responseTime: interviewMetrics.averageResponseTime / 1000,
+                      completeness: 80,
+                      relevance: 85
+                    }}
+                    interviewPhase={currentPhase === 'completed' ? 'waiting' : currentPhase}
+                  />
                   <Card className="interview-question-card">
                     <div className="interview-question-header">
                       <div className="question-meta">
@@ -978,145 +1048,6 @@ const InterviewProcess: React.FC = () => {
                 </div>
               </div>
 
-              {/* Enhanced Metrics and Feedback Panel */}
-              <div className="interview-bottom-panel">
-                {/* Real-time Metrics */}
-                <Card className="interview-metrics-panel">
-                  <div className="metrics-header">
-                    <Text strong style={{ color: '#a8edea' }}>Анализ в реальном времени</Text>
-                  </div>
-                  <div className="interview-metrics-grid">
-                    <div className="interview-metric-item">
-                      <div className="metric-icon">
-                        <SoundOutlined />
-                      </div>
-                      <div className="metric-content">
-                        <div className="interview-metric-value">
-                          {Math.round(speechAnalysis.volume)}%
-                        </div>
-                        <div className="interview-metric-label">Громкость</div>
-                        <div className="metric-bar">
-                          <div 
-                            className="metric-fill" 
-                            style={{ 
-                              width: `${speechAnalysis.volume}%`,
-                              backgroundColor: speechAnalysis.volume > 70 ? '#52c41a' : 
-                                             speechAnalysis.volume > 40 ? '#faad14' : '#ff4d4f'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="interview-metric-item">
-                      <div className="metric-icon">
-                        <EyeOutlined />
-                      </div>
-                      <div className="metric-content">
-                        <div className="interview-metric-value">
-                          {Math.round(speechAnalysis.clarity)}%
-                        </div>
-                        <div className="interview-metric-label">Четкость</div>
-                        <div className="metric-bar">
-                          <div 
-                            className="metric-fill" 
-                            style={{ 
-                              width: `${speechAnalysis.clarity}%`,
-                              backgroundColor: speechAnalysis.clarity > 70 ? '#52c41a' : 
-                                             speechAnalysis.clarity > 40 ? '#faad14' : '#ff4d4f'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="interview-metric-item">
-                      <div className="metric-icon">
-                        <ClockCircleOutlined />
-                      </div>
-                      <div className="metric-content">
-                        <div className="interview-metric-value">
-                          {Math.round(interviewMetrics.speakingTime / 1000)}с
-                        </div>
-                        <div className="interview-metric-label">Время говорения</div>
-                        <div className="metric-bar">
-                          <div 
-                            className="metric-fill" 
-                            style={{ 
-                              width: `${Math.min(100, (interviewMetrics.speakingTime / 60000) * 100)}%`,
-                              backgroundColor: '#a8edea'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="interview-metric-item">
-                      <div className="metric-icon">
-                        <CheckCircleOutlined />
-                      </div>
-                      <div className="metric-content">
-                        <div className="interview-metric-value">
-                          {Math.round(interviewQuality)}%
-                        </div>
-                        <div className="interview-metric-label">Качество</div>
-                        <div className="metric-bar">
-                          <div 
-                            className="metric-fill" 
-                            style={{ 
-                              width: `${interviewQuality}%`,
-                              backgroundColor: interviewQuality > 70 ? '#52c41a' : 
-                                             interviewQuality > 40 ? '#faad14' : '#ff4d4f'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* AI Feedback Panel */}
-                <Card className="interview-feedback-card">
-                  <div className="interview-feedback-header">
-                    <div className="feedback-title">
-                      <EyeOutlined style={{ color: '#a8edea', marginRight: '8px' }} />
-                      <Text strong style={{ color: '#a8edea' }}>
-                        AI Помощник
-                      </Text>
-                    </div>
-                    <div className="feedback-count">
-                      <Badge count={aiFeedback.length} style={{ backgroundColor: '#a8edea' }} />
-                    </div>
-                  </div>
-                  <div className="interview-feedback-content">
-                    {aiFeedback.length > 0 ? (
-                      aiFeedback.slice(-4).map((feedback, index) => (
-                        <div 
-                          key={index} 
-                          className={`interview-feedback-item interview-feedback-${feedback.type}`}
-                        >
-                          <div className="feedback-icon">
-                            {feedback.type === 'positive' && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
-                            {feedback.type === 'suggestion' && <BulbOutlined style={{ color: '#faad14' }} />}
-                            {feedback.type === 'warning' && <StopOutlined style={{ color: '#ff4d4f' }} />}
-                          </div>
-                          <div className="feedback-text">
-                            <Text style={{ fontSize: '14px' }}>
-                              {feedback.message}
-                            </Text>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="no-feedback">
-                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
-                          AI анализирует ваши ответы...
-                        </Text>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </div>
               
               {/* Enhanced Controls */}
               <div className="interview-controls-section">
@@ -1230,7 +1161,8 @@ const InterviewProcess: React.FC = () => {
                 className="interview-progress"
               />
               <div className="interview-progress-labels">
-                <span>Загрузка резюме</span>
+                <span>Подготовка</span>
+                <span>Резюме</span>
                 <span>Проверка</span>
                 <span>Язык</span>
                 <span>Интервью</span>

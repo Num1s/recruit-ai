@@ -101,7 +101,7 @@ const InviteCandidate: React.FC<InviteCandidateProps> = ({
       onCancel={onClose}
       width={800}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
       className="invite-candidate-modal"
       styles={{
         content: {

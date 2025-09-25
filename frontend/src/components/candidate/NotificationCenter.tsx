@@ -274,7 +274,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ userId }) => {
 
   return (
     <Dropdown
-      dropdownRender={() => dropdownContent}
+      popupRender={() => dropdownContent}
       trigger={['click']}
       open={visible}
       onOpenChange={setVisible}
