@@ -1,13 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button, Typography, Progress, Card, Space, Modal, Upload, Select, message, Alert } from 'antd';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Button, Typography, Progress, Card, Space, Modal, Upload, Select, message, Alert, Tooltip, Badge, Spin } from 'antd';
 import { 
   ArrowLeftOutlined, 
+  ArrowRightOutlined,
   VideoCameraOutlined, 
   AudioOutlined,
   UploadOutlined,
   PlayCircleOutlined,
   StopOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  PauseCircleOutlined,
+  ReloadOutlined,
+  SoundOutlined,
+  EyeOutlined,
+  QuestionCircleOutlined,
+  ClockCircleOutlined,
+  BulbOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
@@ -18,11 +26,29 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 
 type InterviewStep = 'upload-cv' | 'equipment-check' | 'language-select' | 'ai-interview' | 'completed';
+type InterviewPhase = 'waiting' | 'speaking' | 'listening' | 'processing' | 'completed';
 
 interface InterviewQuestion {
   id: string;
   question: string;
   category: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  estimatedTime: number; // в секундах
+  tips?: string[];
+}
+
+interface InterviewMetrics {
+  speakingTime: number;
+  listeningTime: number;
+  pauseCount: number;
+  averageResponseTime: number;
+  confidenceScore: number;
+}
+
+interface AIFeedback {
+  type: 'positive' | 'suggestion' | 'warning';
+  message: string;
+  timestamp: number;
 }
 
 const InterviewProcess: React.FC = () => {
@@ -39,6 +65,38 @@ const InterviewProcess: React.FC = () => {
   const [timeRemaining, setTimeRemaining] = useState(600); // 10 минут
   const [devicePermissions, setDevicePermissions] = useState({ camera: false, microphone: false });
   const [isQuickStart, setIsQuickStart] = useState(false);
+  
+  // Новые состояния для улучшенного функционала
+  const [currentPhase, setCurrentPhase] = useState<InterviewPhase>('waiting');
+  const [isPaused, setIsPaused] = useState(false);
+  const [questionStartTime, setQuestionStartTime] = useState<number>(0);
+  const [currentQuestionTime, setCurrentQuestionTime] = useState(0);
+  const [interviewMetrics, setInterviewMetrics] = useState<InterviewMetrics>({
+    speakingTime: 0,
+    listeningTime: 0,
+    pauseCount: 0,
+    averageResponseTime: 0,
+    confidenceScore: 0
+  });
+  const [aiFeedback, setAiFeedback] = useState<AIFeedback[]>([]);
+  const [showTips, setShowTips] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [questionProgress, setQuestionProgress] = useState(0);
+  const [speechAnalysis, setSpeechAnalysis] = useState({
+    isSpeaking: false,
+    volume: 0,
+    clarity: 0,
+    pace: 0
+  });
+  const [interviewQuality, setInterviewQuality] = useState(0);
+  const [showQuestionPreview, setShowQuestionPreview] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [interviewSummary, setInterviewSummary] = useState({
+    totalQuestions: 0,
+    answeredQuestions: 0,
+    averageResponseTime: 0,
+    overallQuality: 0
+  });
 
   // Проверяем авторизацию при загрузке
   useEffect(() => {
@@ -69,34 +127,69 @@ const InterviewProcess: React.FC = () => {
     {
       id: '1',
       question: 'Расскажите о себе и вашем опыте работы в IT.',
-      category: 'general'
+      category: 'general',
+      difficulty: 'easy',
+      estimatedTime: 120,
+      tips: [
+        'Начните с краткого представления',
+        'Расскажите о своем образовании',
+        'Опишите ключевые проекты и достижения'
+      ]
     },
     {
       id: '2', 
       question: 'Какие языки программирования вы используете и какой из них ваш любимый?',
-      category: 'technical'
+      category: 'technical',
+      difficulty: 'medium',
+      estimatedTime: 90,
+      tips: [
+        'Перечислите основные языки',
+        'Объясните, почему выбираете конкретный язык',
+        'Приведите примеры использования'
+      ]
     },
     {
       id: '3',
       question: 'Расскажите о самом сложном проекте, над которым вы работали.',
-      category: 'experience'
+      category: 'experience',
+      difficulty: 'hard',
+      estimatedTime: 180,
+      tips: [
+        'Опишите технические вызовы',
+        'Расскажите о решениях и подходах',
+        'Объясните, что вы извлекли из этого опыта'
+      ]
     },
     {
       id: '4',
       question: 'Как вы решаете конфликты в команде?',
-      category: 'behavioral'
+      category: 'behavioral',
+      difficulty: 'medium',
+      estimatedTime: 120,
+      tips: [
+        'Приведите конкретный пример',
+        'Опишите свой подход к решению конфликтов',
+        'Объясните результат и уроки'
+      ]
     },
     {
       id: '5',
       question: 'Где вы видите себя через 5 лет?',
-      category: 'career'
+      category: 'career',
+      difficulty: 'easy',
+      estimatedTime: 90,
+      tips: [
+        'Будьте реалистичны в планах',
+        'Свяжите свои цели с позицией',
+        'Покажите готовность к развитию'
+      ]
     }
   ];
 
   useEffect(() => {
     // Таймер для интервью
     let interval: ReturnType<typeof setInterval>;
-    if (interviewStarted && timeRemaining > 0) {
+    if (interviewStarted && timeRemaining > 0 && !isPaused) {
       interval = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -111,7 +204,94 @@ const InterviewProcess: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [interviewStarted, timeRemaining]);
+  }, [interviewStarted, timeRemaining, isPaused]);
+
+  // Таймер для текущего вопроса
+  useEffect(() => {
+    let questionInterval: ReturnType<typeof setInterval>;
+    if (interviewStarted && !isPaused && currentPhase === 'speaking') {
+      questionInterval = setInterval(() => {
+        setCurrentQuestionTime(prev => prev + 1);
+        setQuestionProgress(prev => {
+          const currentQ = mockQuestions[currentQuestion];
+          const progress = currentQ ? (prev + (1 / currentQ.estimatedTime) * 100) : prev;
+          return Math.min(progress, 100);
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (questionInterval) clearInterval(questionInterval);
+    };
+  }, [interviewStarted, isPaused, currentPhase, currentQuestion, mockQuestions]);
+
+  // Анализ речи
+  useEffect(() => {
+    let speechInterval: ReturnType<typeof setInterval>;
+    if (interviewStarted && currentPhase === 'speaking') {
+      speechInterval = setInterval(() => {
+        // Симуляция анализа речи
+        const isSpeaking = Math.random() > 0.7;
+        const volume = Math.random() * 100;
+        const clarity = Math.random() * 100;
+        const pace = Math.random() * 100;
+
+        setSpeechAnalysis({
+          isSpeaking,
+          volume,
+          clarity,
+          pace
+        });
+
+        // Обновляем метрики
+        setInterviewMetrics(prev => ({
+          ...prev,
+          speakingTime: prev.speakingTime + (isSpeaking ? 3000 : 0),
+          pauseCount: prev.pauseCount + (!isSpeaking && prev.speakingTime > 0 ? 1 : 0),
+          confidenceScore: (prev.confidenceScore + (clarity / 10)) / 2
+        }));
+
+        // Добавляем фидбек на основе анализа
+        if (volume < 30) {
+          const feedback: AIFeedback = {
+            type: 'suggestion',
+            message: 'Попробуйте говорить немного громче для лучшей слышимости',
+            timestamp: Date.now()
+          };
+          setAiFeedback(prev => [...prev.slice(-4), feedback]);
+        }
+        if (pace > 80) {
+          const feedback: AIFeedback = {
+            type: 'suggestion',
+            message: 'Не торопитесь, говорите более размеренно',
+            timestamp: Date.now()
+          };
+          setAiFeedback(prev => [...prev.slice(-4), feedback]);
+        }
+        if (clarity > 70) {
+          const feedback: AIFeedback = {
+            type: 'positive',
+            message: 'Отлично! Ваша речь очень четкая',
+            timestamp: Date.now()
+          };
+          setAiFeedback(prev => [...prev.slice(-4), feedback]);
+        }
+      }, 3000);
+    }
+    
+    return () => {
+      if (speechInterval) clearInterval(speechInterval);
+    };
+  }, [interviewStarted, currentPhase]);
+
+  const addAIFeedback = useCallback((type: 'positive' | 'suggestion' | 'warning', message: string) => {
+    const feedback: AIFeedback = {
+      type,
+      message,
+      timestamp: Date.now()
+    };
+    setAiFeedback(prev => [...prev.slice(-4), feedback]); // Храним только последние 5 сообщений
+  }, []);
 
   const checkDevicePermissions = async () => {
     try {
@@ -174,6 +354,8 @@ const InterviewProcess: React.FC = () => {
   const startInterview = () => {
     setInterviewStarted(true);
     setIsRecording(true);
+    setCurrentPhase('speaking');
+    setQuestionStartTime(Date.now());
     
     // Здесь будет логика начала записи
     if (webcamRef.current && webcamRef.current.stream) {
@@ -189,16 +371,79 @@ const InterviewProcess: React.FC = () => {
       mediaRecorder.start();
     }
     
+    // Добавляем приветственный фидбек
+    const welcomeFeedback: AIFeedback = {
+      type: 'positive',
+      message: 'Добро пожаловать на интервью! Говорите естественно и не переживайте.',
+      timestamp: Date.now()
+    };
+    setAiFeedback(prev => [...prev.slice(-4), welcomeFeedback]);
+    
     message.success('Интервью началось. Отвечайте на вопросы естественно.');
   };
 
-  const nextQuestion = () => {
+  const calculateInterviewQuality = useCallback(() => {
+    const avgResponseTime = interviewMetrics.averageResponseTime;
+    const avgClarity = speechAnalysis.clarity;
+    const avgConfidence = interviewMetrics.confidenceScore;
+    
+    // Рассчитываем общее качество интервью (0-100)
+    const quality = Math.min(100, Math.max(0, 
+      (avgClarity * 0.4) + 
+      (avgConfidence * 0.3) + 
+      (Math.max(0, 100 - (avgResponseTime / 1000) * 10) * 0.3)
+    ));
+    
+    setInterviewQuality(quality);
+    return quality;
+  }, [interviewMetrics, speechAnalysis]);
+
+  const generateInterviewSummary = useCallback(() => {
+    const summary = {
+      totalQuestions: mockQuestions.length,
+      answeredQuestions: currentQuestion + 1,
+      averageResponseTime: interviewMetrics.averageResponseTime / 1000,
+      overallQuality: calculateInterviewQuality()
+    };
+    setInterviewSummary(summary);
+    return summary;
+  }, [mockQuestions.length, currentQuestion, interviewMetrics, calculateInterviewQuality]);
+
+  const nextQuestion = useCallback(() => {
     if (currentQuestion < mockQuestions.length - 1) {
+      // Завершаем текущий вопрос
+      const questionTime = Date.now() - questionStartTime;
+      setInterviewMetrics(prev => ({
+        ...prev,
+        speakingTime: prev.speakingTime + questionTime,
+        averageResponseTime: (prev.averageResponseTime + questionTime) / 2
+      }));
+      
+      // Обновляем качество интервью
+      calculateInterviewQuality();
+      
+      // Переходим к следующему вопросу
       setCurrentQuestion(prev => prev + 1);
+      setCurrentQuestionTime(0);
+      setQuestionProgress(0);
+      setQuestionStartTime(Date.now());
+      setCurrentPhase('waiting');
+      
+      // Добавляем фидбек
+      const currentQ = mockQuestions[currentQuestion];
+      if (currentQ) {
+        const feedback: AIFeedback = {
+          type: 'positive',
+          message: `Отлично! Переходим к следующему вопросу: "${currentQ.category}"`,
+          timestamp: Date.now()
+        };
+        setAiFeedback(prev => [...prev.slice(-4), feedback]);
+      }
     } else {
+      generateInterviewSummary();
       handleCompleteInterview();
     }
-  };
+  }, [currentQuestion, questionStartTime, calculateInterviewQuality, generateInterviewSummary]);
 
   const handleCompleteInterview = () => {
     setIsRecording(false);
@@ -272,6 +517,72 @@ const InterviewProcess: React.FC = () => {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  // Новые функции для улучшенного функционала
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return '#52c41a';
+      case 'medium': return '#faad14';
+      case 'hard': return '#ff4d4f';
+      default: return '#1890ff';
+    }
+  };
+
+  const getDifficultyText = (difficulty: string) => {
+    switch (difficulty) {
+      case 'easy': return 'Легко';
+      case 'medium': return 'Средне';
+      case 'hard': return 'Сложно';
+      default: return 'Неизвестно';
+    }
+  };
+
+  const pauseInterview = useCallback(() => {
+    setIsPaused(true);
+    setCurrentPhase('waiting');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+    }
+    message.info('Интервью приостановлено');
+  }, []);
+
+  const resumeInterview = useCallback(() => {
+    setIsPaused(false);
+    setCurrentPhase('speaking');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+    }
+    message.success('Интервью возобновлено');
+  }, []);
+
+  const resetQuestion = useCallback(() => {
+    setCurrentQuestionTime(0);
+    setQuestionProgress(0);
+    setQuestionStartTime(Date.now());
+    setCurrentPhase('waiting');
+    const feedback: AIFeedback = {
+      type: 'suggestion',
+      message: 'Готовы начать заново? Не торопитесь, подумайте над ответом.',
+      timestamp: Date.now()
+    };
+    setAiFeedback(prev => [...prev.slice(-4), feedback]);
+  }, []);
+
+  const previewNextQuestion = useCallback(() => {
+    if (currentQuestion < mockQuestions.length - 1) {
+      setShowQuestionPreview(true);
+      setTimeout(() => setShowQuestionPreview(false), 3000);
+    }
+  }, [currentQuestion, mockQuestions.length]);
+
+  const startQuestionTransition = useCallback(() => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setIsTransitioning(false);
+      nextQuestion();
+    }, 1000);
+  }, []);
+
 
   const handleBackToDashboard = () => {
     navigate('/candidate/dashboard');
@@ -386,96 +697,487 @@ const InterviewProcess: React.FC = () => {
         );
 
       case 'ai-interview':
+        const currentQ = mockQuestions[currentQuestion];
+        const nextQ = mockQuestions[currentQuestion + 1];
         return (
           <div className="interview-fullscreen-container">
+            {/* Enhanced Header */}
             <div className="interview-fullscreen-header">
-              <Space>
-                <Text strong className="interview-question-counter">Вопрос {currentQuestion + 1} из {mockQuestions.length}</Text>
-                <Text className="interview-separator">|</Text>
-                <Text className="interview-timer">Осталось: {formatTime(timeRemaining)}</Text>
-              </Space>
-              <Space>
-                {isRecording && <Text type="danger" className="interview-recording-indicator">● Запись</Text>}
-                <Button 
-                  type="primary"
-                  onClick={handleTestComplete}
-                  icon={<CheckCircleOutlined />}
-                  className="interview-test-button"
-                >
-                  Тест
-                </Button>
-                <Button 
-                  danger 
-                  onClick={handleCompleteInterview}
-                  icon={<StopOutlined />}
-                  className="interview-complete-button"
-                >
-                  Завершить
-                </Button>
-              </Space>
-            </div>
-            
-            <div className="interview-fullscreen-main">
-              <div className="interview-video-section">
-                <div className="interview-candidate-video">
-                  <Webcam
-                    ref={webcamRef}
-                    audio={true}
-                    width="100%"
-                    height="100%"
-                    style={{ objectFit: 'cover' }}
-                  />
+              <div className="interview-header-left">
+                <div className="interview-progress-indicator">
+                  <div className="interview-progress-circle">
+                    <Progress
+                      type="circle"
+                      percent={((currentQuestion + 1) / mockQuestions.length) * 100}
+                      size={50}
+                      strokeColor="#a8edea"
+                      trailColor="rgba(255,255,255,0.1)"
+                      format={() => `${currentQuestion + 1}/${mockQuestions.length}`}
+                    />
+                  </div>
+                  <div className="interview-progress-info">
+                    <Text strong className="interview-question-counter">
+                      Вопрос {currentQuestion + 1} из {mockQuestions.length}
+                    </Text>
+                    <Badge 
+                      color={getDifficultyColor(currentQ?.difficulty || 'medium')}
+                      text={getDifficultyText(currentQ?.difficulty || 'medium')}
+                    />
+                  </div>
                 </div>
                 
-                <div className="interview-ai-avatar-container">
-                  <div className="interview-ai-avatar">
-                    <Text className="interview-ai-text">AI</Text>
+                <div className="interview-timer-section">
+                  <div className="timer-item">
+                    <ClockCircleOutlined style={{ color: '#a8edea' }} />
+                    <Text className="interview-timer">Общее время: {formatTime(timeRemaining)}</Text>
                   </div>
+                  {currentQuestionTime > 0 && (
+                    <div className="timer-item">
+                      <ClockCircleOutlined style={{ color: '#52c41a' }} />
+                      <Text style={{ color: '#52c41a' }}>
+                        Время на вопрос: {formatTime(currentQuestionTime)}
+                      </Text>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              <Card className="interview-question-card">
-                <div className="interview-speaking-indicator">
-                  <AudioOutlined />
-                  <Text>AI задает вопрос...</Text>
+              <div className="interview-header-right">
+                <div className="interview-status-indicators">
+                  {isRecording && (
+                    <div className="status-indicator recording">
+                      <div className="status-dot"></div>
+                      <Text>Запись</Text>
+                    </div>
+                  )}
+                  {isPaused && (
+                    <div className="status-indicator paused">
+                      <div className="status-dot"></div>
+                      <Text>Приостановлено</Text>
+                    </div>
+                  )}
+                  <div className="quality-indicator">
+                    <Text>Качество: </Text>
+                    <Progress
+                      percent={interviewQuality}
+                      size="small"
+                      strokeColor={interviewQuality > 70 ? '#52c41a' : interviewQuality > 40 ? '#faad14' : '#ff4d4f'}
+                      showInfo={false}
+                      style={{ width: '60px' }}
+                    />
+                    <Text style={{ color: interviewQuality > 70 ? '#52c41a' : interviewQuality > 40 ? '#faad14' : '#ff4d4f' }}>
+                      {Math.round(interviewQuality)}%
+                    </Text>
+                  </div>
                 </div>
                 
-                <div className="interview-question-text">
-                  {mockQuestions[currentQuestion]?.question}
+                <div className="interview-control-buttons">
+                  <Tooltip title="Показать подсказки">
+                    <Button 
+                      type={showTips ? "primary" : "default"}
+                      icon={<BulbOutlined />}
+                      onClick={() => setShowTips(!showTips)}
+                      size="small"
+                      className="control-button"
+                    />
+                  </Tooltip>
+                  
+                  <Tooltip title="Предварительный просмотр следующего вопроса">
+                    <Button 
+                      icon={<EyeOutlined />}
+                      onClick={previewNextQuestion}
+                      size="small"
+                      className="control-button"
+                      disabled={currentQuestion >= mockQuestions.length - 1}
+                    />
+                  </Tooltip>
+                  
+                  <Tooltip title="Перезапустить вопрос">
+                    <Button 
+                      icon={<ReloadOutlined />}
+                      onClick={resetQuestion}
+                      size="small"
+                      className="control-button"
+                    />
+                  </Tooltip>
+                  
+                  {isPaused ? (
+                    <Button 
+                      type="primary"
+                      icon={<PlayCircleOutlined />}
+                      onClick={resumeInterview}
+                      size="small"
+                      className="control-button"
+                    >
+                      Продолжить
+                    </Button>
+                  ) : (
+                    <Button 
+                      icon={<PauseCircleOutlined />}
+                      onClick={pauseInterview}
+                      size="small"
+                      className="control-button"
+                    >
+                      Пауза
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    type="primary"
+                    onClick={handleTestComplete}
+                    icon={<CheckCircleOutlined />}
+                    size="small"
+                    className="control-button"
+                  >
+                    Завершить
+                  </Button>
                 </div>
-                
-                <div className="interview-question-category">
-                  <Text type="secondary">
-                    Категория: {mockQuestions[currentQuestion]?.category}
-                  </Text>
+              </div>
+            </div>
+            
+            {/* Main Interview Area */}
+            <div className="interview-fullscreen-main">
+              <div className="interview-content-layout">
+                {/* Left Side - Video and AI */}
+                <div className="interview-video-section">
+                  <div className="video-container">
+                    <div className="interview-candidate-video">
+                      <Webcam
+                        ref={webcamRef}
+                        audio={true}
+                        width="100%"
+                        height="100%"
+                        style={{ objectFit: 'cover' }}
+                      />
+                      {speechAnalysis.isSpeaking && (
+                        <div className="interview-speaking-indicator-overlay">
+                          <div className="speaking-animation">
+                            <SoundOutlined style={{ color: '#52c41a', fontSize: '24px' }} />
+                          </div>
+                          <Text style={{ color: '#52c41a', marginLeft: '12px', fontWeight: '500' }}>
+                            Говорите...
+                          </Text>
+                        </div>
+                      )}
+                      
+                      {/* Video Quality Indicator */}
+                      <div className="video-quality-indicator">
+                        <div className="quality-bar">
+                          <div 
+                            className="quality-fill" 
+                            style={{ 
+                              width: `${speechAnalysis.clarity}%`,
+                              backgroundColor: speechAnalysis.clarity > 70 ? '#52c41a' : 
+                                             speechAnalysis.clarity > 40 ? '#faad14' : '#ff4d4f'
+                            }}
+                          />
+                        </div>
+                        <Text style={{ fontSize: '10px', color: 'rgba(255,255,255,0.8)' }}>
+                          Качество: {Math.round(speechAnalysis.clarity)}%
+                        </Text>
+                      </div>
+                    </div>
+                    
+                    <div className="interview-ai-avatar-container">
+                      <div className="interview-ai-avatar">
+                        <div className="ai-avatar-inner">
+                          <Text className="interview-ai-text">AI</Text>
+                          {currentPhase === 'speaking' && (
+                            <div className="ai-listening-animation">
+                              <div className="listening-dot"></div>
+                              <div className="listening-dot"></div>
+                              <div className="listening-dot"></div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="interview-ai-status">
+                        <Text style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)', fontWeight: '500' }}>
+                          {currentPhase === 'speaking' ? 'Слушаю...' : 
+                           currentPhase === 'waiting' ? 'Готов' : 'Анализирую...'}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </Card>
               
-              {!interviewStarted ? (
-                <div className="interview-controls">
-                  <Button 
-                    type="primary" 
-                    size="large" 
-                    icon={<PlayCircleOutlined />}
-                    onClick={startInterview}
-                    className="interview-start-button"
-                  >
-                    Начать интервью
-                  </Button>
+                {/* Right Side - Question and Controls */}
+                <div className="interview-question-section">
+                  <Card className="interview-question-card">
+                    <div className="interview-question-header">
+                      <div className="question-meta">
+                        <Space>
+                          <Badge 
+                            color={getDifficultyColor(currentQ?.difficulty || 'medium')}
+                            text={getDifficultyText(currentQ?.difficulty || 'medium')}
+                          />
+                          <Text type="secondary">
+                            {currentQ?.category} • ~{currentQ?.estimatedTime}с
+                          </Text>
+                        </Space>
+                      </div>
+                      <div className="question-progress">
+                        <Progress 
+                          percent={questionProgress} 
+                          size="small" 
+                          strokeColor="#a8edea"
+                          showInfo={false}
+                        />
+                        <Text style={{ color: '#a8edea', fontSize: '12px' }}>
+                          Прогресс: {Math.round(questionProgress)}%
+                        </Text>
+                      </div>
+                    </div>
+                    
+                    <div className="interview-question-text">
+                      <Title level={3} style={{ color: 'rgba(255,255,255,0.95)', marginBottom: '1rem' }}>
+                        {currentQ?.question}
+                      </Title>
+                    </div>
+                    
+                    {showTips && currentQ?.tips && (
+                      <div className="interview-tips-section">
+                        <div className="tips-header">
+                          <BulbOutlined style={{ color: '#a8edea', marginRight: '8px' }} />
+                          <Text strong style={{ color: '#a8edea' }}>Подсказки для ответа:</Text>
+                        </div>
+                        <div className="tips-content">
+                          {currentQ.tips.map((tip, index) => (
+                            <div key={index} className="tip-item">
+                              <div className="tip-number">{index + 1}</div>
+                              <Text style={{ color: 'rgba(255,255,255,0.9)' }}>{tip}</Text>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+
+                  {/* Next Question Preview */}
+                  {showQuestionPreview && nextQ && (
+                    <Card className="next-question-preview">
+                      <div className="preview-header">
+                        <Text strong style={{ color: '#a8edea' }}>Следующий вопрос:</Text>
+                      </div>
+                      <div className="preview-content">
+                        <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
+                          {nextQ.question}
+                        </Text>
+                        <div className="preview-meta">
+                          <Badge 
+                            color={getDifficultyColor(nextQ.difficulty)}
+                            text={getDifficultyText(nextQ.difficulty)}
+                          />
+                          <Text type="secondary" style={{ marginLeft: '8px' }}>
+                            {nextQ.category} • ~{nextQ.estimatedTime}с
+                          </Text>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
                 </div>
-              ) : (
-                <div className="interview-controls">
-                  <Button 
-                    type="primary" 
-                    size="large"
-                    onClick={nextQuestion}
-                    disabled={currentQuestion >= mockQuestions.length - 1}
-                    className="interview-next-question-button"
-                  >
-                    Следующий вопрос
-                  </Button>
-                </div>
-              )}
+              </div>
+
+              {/* Enhanced Metrics and Feedback Panel */}
+              <div className="interview-bottom-panel">
+                {/* Real-time Metrics */}
+                <Card className="interview-metrics-panel">
+                  <div className="metrics-header">
+                    <Text strong style={{ color: '#a8edea' }}>Анализ в реальном времени</Text>
+                  </div>
+                  <div className="interview-metrics-grid">
+                    <div className="interview-metric-item">
+                      <div className="metric-icon">
+                        <SoundOutlined />
+                      </div>
+                      <div className="metric-content">
+                        <div className="interview-metric-value">
+                          {Math.round(speechAnalysis.volume)}%
+                        </div>
+                        <div className="interview-metric-label">Громкость</div>
+                        <div className="metric-bar">
+                          <div 
+                            className="metric-fill" 
+                            style={{ 
+                              width: `${speechAnalysis.volume}%`,
+                              backgroundColor: speechAnalysis.volume > 70 ? '#52c41a' : 
+                                             speechAnalysis.volume > 40 ? '#faad14' : '#ff4d4f'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="interview-metric-item">
+                      <div className="metric-icon">
+                        <EyeOutlined />
+                      </div>
+                      <div className="metric-content">
+                        <div className="interview-metric-value">
+                          {Math.round(speechAnalysis.clarity)}%
+                        </div>
+                        <div className="interview-metric-label">Четкость</div>
+                        <div className="metric-bar">
+                          <div 
+                            className="metric-fill" 
+                            style={{ 
+                              width: `${speechAnalysis.clarity}%`,
+                              backgroundColor: speechAnalysis.clarity > 70 ? '#52c41a' : 
+                                             speechAnalysis.clarity > 40 ? '#faad14' : '#ff4d4f'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="interview-metric-item">
+                      <div className="metric-icon">
+                        <ClockCircleOutlined />
+                      </div>
+                      <div className="metric-content">
+                        <div className="interview-metric-value">
+                          {Math.round(interviewMetrics.speakingTime / 1000)}с
+                        </div>
+                        <div className="interview-metric-label">Время говорения</div>
+                        <div className="metric-bar">
+                          <div 
+                            className="metric-fill" 
+                            style={{ 
+                              width: `${Math.min(100, (interviewMetrics.speakingTime / 60000) * 100)}%`,
+                              backgroundColor: '#a8edea'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="interview-metric-item">
+                      <div className="metric-icon">
+                        <CheckCircleOutlined />
+                      </div>
+                      <div className="metric-content">
+                        <div className="interview-metric-value">
+                          {Math.round(interviewQuality)}%
+                        </div>
+                        <div className="interview-metric-label">Качество</div>
+                        <div className="metric-bar">
+                          <div 
+                            className="metric-fill" 
+                            style={{ 
+                              width: `${interviewQuality}%`,
+                              backgroundColor: interviewQuality > 70 ? '#52c41a' : 
+                                             interviewQuality > 40 ? '#faad14' : '#ff4d4f'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* AI Feedback Panel */}
+                <Card className="interview-feedback-card">
+                  <div className="interview-feedback-header">
+                    <div className="feedback-title">
+                      <EyeOutlined style={{ color: '#a8edea', marginRight: '8px' }} />
+                      <Text strong style={{ color: '#a8edea' }}>
+                        AI Помощник
+                      </Text>
+                    </div>
+                    <div className="feedback-count">
+                      <Badge count={aiFeedback.length} style={{ backgroundColor: '#a8edea' }} />
+                    </div>
+                  </div>
+                  <div className="interview-feedback-content">
+                    {aiFeedback.length > 0 ? (
+                      aiFeedback.slice(-4).map((feedback, index) => (
+                        <div 
+                          key={index} 
+                          className={`interview-feedback-item interview-feedback-${feedback.type}`}
+                        >
+                          <div className="feedback-icon">
+                            {feedback.type === 'positive' && <CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                            {feedback.type === 'suggestion' && <BulbOutlined style={{ color: '#faad14' }} />}
+                            {feedback.type === 'warning' && <StopOutlined style={{ color: '#ff4d4f' }} />}
+                          </div>
+                          <div className="feedback-text">
+                            <Text style={{ fontSize: '14px' }}>
+                              {feedback.message}
+                            </Text>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="no-feedback">
+                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' }}>
+                          AI анализирует ваши ответы...
+                        </Text>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </div>
+              
+              {/* Enhanced Controls */}
+              <div className="interview-controls-section">
+                {!interviewStarted ? (
+                  <div className="interview-start-controls">
+                    <Button 
+                      type="primary" 
+                      size="large" 
+                      icon={<PlayCircleOutlined />}
+                      onClick={startInterview}
+                      className="interview-start-button"
+                    >
+                      Начать интервью
+                    </Button>
+                    <div className="start-info">
+                      <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>
+                        Готовы? Нажмите кнопку, чтобы начать запись и ответить на вопросы
+                      </Text>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="interview-active-controls">
+                    <div className="main-controls">
+                      <Button 
+                        type="primary" 
+                        size="large"
+                        onClick={startQuestionTransition}
+                        disabled={isTransitioning}
+                        className="interview-next-question-button"
+                        icon={isTransitioning ? <Spin size="small" /> : <ArrowRightOutlined />}
+                      >
+                        {isTransitioning ? 'Переход...' : 
+                         currentQuestion >= mockQuestions.length - 1 ? 'Завершить интервью' : 'Следующий вопрос'}
+                      </Button>
+                    </div>
+                    
+                    <div className="secondary-controls">
+                      <Space size="small">
+                        <Button 
+                          icon={<QuestionCircleOutlined />}
+                          onClick={() => setShowTips(!showTips)}
+                          type={showTips ? "primary" : "default"}
+                          size="small"
+                        >
+                          {showTips ? 'Скрыть' : 'Показать'} подсказки
+                        </Button>
+                        
+                        {currentQuestion < mockQuestions.length - 1 && (
+                          <Button 
+                            icon={<EyeOutlined />}
+                            onClick={previewNextQuestion}
+                            size="small"
+                          >
+                            Предпросмотр
+                          </Button>
+                        )}
+                      </Space>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
